@@ -70,8 +70,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // Remote control
-  ptyRemoteControlEnable: (ptyId: string) =>
-    ipcRenderer.invoke('pty:remoteControl:enable', ptyId),
+  ptyRemoteControlEnable: (ptyId: string) => ipcRenderer.invoke('pty:remoteControl:enable', ptyId),
   ptyRemoteControlGetAllStates: () => ipcRenderer.invoke('pty:remoteControl:getAllStates'),
   onRemoteControlStateChanged: (
     callback: (data: { ptyId: string; state: { url: string; active: boolean } | null }) => void,
@@ -180,6 +179,56 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('git:fileChanged', handler);
     return () => {
       ipcRenderer.removeListener('git:fileChanged', handler);
+    };
+  },
+
+  // Auto-update
+  autoUpdateCheck: () => ipcRenderer.invoke('autoUpdate:check'),
+  autoUpdateDownload: () => ipcRenderer.invoke('autoUpdate:download'),
+  autoUpdateQuitAndInstall: () => ipcRenderer.invoke('autoUpdate:quitAndInstall'),
+  onAutoUpdateAvailable: (callback: (info: { version: string }) => void) => {
+    const handler = (_event: unknown, info: { version: string }) => callback(info);
+    ipcRenderer.on('autoUpdate:available', handler);
+    return () => {
+      ipcRenderer.removeListener('autoUpdate:available', handler);
+    };
+  },
+  onAutoUpdateNotAvailable: (callback: () => void) => {
+    const handler = () => callback();
+    ipcRenderer.on('autoUpdate:notAvailable', handler);
+    return () => {
+      ipcRenderer.removeListener('autoUpdate:notAvailable', handler);
+    };
+  },
+  onAutoUpdateDownloadProgress: (
+    callback: (progress: {
+      percent: number;
+      bytesPerSecond: number;
+      transferred: number;
+      total: number;
+    }) => void,
+  ) => {
+    const handler = (
+      _event: unknown,
+      progress: { percent: number; bytesPerSecond: number; transferred: number; total: number },
+    ) => callback(progress);
+    ipcRenderer.on('autoUpdate:downloadProgress', handler);
+    return () => {
+      ipcRenderer.removeListener('autoUpdate:downloadProgress', handler);
+    };
+  },
+  onAutoUpdateDownloaded: (callback: () => void) => {
+    const handler = () => callback();
+    ipcRenderer.on('autoUpdate:downloaded', handler);
+    return () => {
+      ipcRenderer.removeListener('autoUpdate:downloaded', handler);
+    };
+  },
+  onAutoUpdateError: (callback: (message: string) => void) => {
+    const handler = (_event: unknown, message: string) => callback(message);
+    ipcRenderer.on('autoUpdate:error', handler);
+    return () => {
+      ipcRenderer.removeListener('autoUpdate:error', handler);
     };
   },
 });
