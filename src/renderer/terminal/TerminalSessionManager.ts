@@ -251,6 +251,12 @@ export class TerminalSessionManager {
     let reattached = false;
     let isDirectSpawn = false;
     if (!this.ptyStarted) {
+      // Buffer PTY data while we start the process and restore the snapshot.
+      // connectPtyListeners() checks dataBuffer and pushes into it instead
+      // of writing directly to the terminal. We flush after setup completes.
+      this.dataBuffer = [];
+      this.connectPtyListeners();
+
       if (this.shellOnly) {
         // Shell-only mode: just spawn a shell, skip Claude CLI
         let existingSnapshot: TerminalSnapshot | null = null;
@@ -312,6 +318,8 @@ export class TerminalSessionManager {
           this._isRestarting = true;
           this.readyFired = false;
           this.onRestartingCallback?.();
+          // Discard any data buffered from the old PTY before killing it
+          this.dataBuffer = [];
           window.electronAPI.ptyKill(this.id);
           this.ptyStarted = false;
           result = await this.startPty(resume);
@@ -370,21 +378,43 @@ export class TerminalSessionManager {
         this.terminal.write('\x1b[?25l');
       }
 
-      this.connectPtyListeners();
+      // If we buffered PTY data during startup, flush it now that the
+      // snapshot has been restored and the terminal is ready.
+      if (this.dataBuffer !== null) {
+        const buffered = this.dataBuffer;
+        this.dataBuffer = null;
+        for (const chunk of buffered) {
+          this.terminal.write(chunk);
+        }
+        if (buffered.length > 0) {
+          this.snapshotDirty = true;
+          this.debounceSaveSnapshot();
+        }
+      }
+
+      // Re-attach path: listeners weren't set up above, connect them now
+      if (!this.unsubData) {
+        this.connectPtyListeners();
+      }
 
       requestAnimationFrame(() => {
         if (gen !== this.attachGeneration) return;
         this.fitAddon.fit();
         this.terminal.focus();
 
+        // Use fit() dedup logic — avoid redundant SIGWINCH that can cause
+        // the shell to redraw while the user is already typing
         const dims = this.fitAddon.proposeDimensions();
         if (!dims || dims.cols <= 0 || dims.rows <= 0) return;
-
-        window.electronAPI.ptyResize({
-          id: this.id,
-          cols: dims.cols,
-          rows: dims.rows,
-        });
+        if (dims.cols !== this.lastPtyCols || dims.rows !== this.lastPtyRows) {
+          this.lastPtyCols = dims.cols;
+          this.lastPtyRows = dims.rows;
+          window.electronAPI.ptyResize({
+            id: this.id,
+            cols: dims.cols,
+            rows: dims.rows,
+          });
+        }
       });
     }
   }

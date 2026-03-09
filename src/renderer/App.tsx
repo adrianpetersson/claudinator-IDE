@@ -352,6 +352,10 @@ export function App() {
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Skip global shortcuts when typing in text inputs
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
       // Tasks
       if (keybindings.newTask && matchesBinding(e, keybindings.newTask)) {
         e.preventDefault();
