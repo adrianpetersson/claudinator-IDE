@@ -700,6 +700,7 @@ export function App() {
       path: taskPath,
       useWorktree,
       autoApprove,
+      branchCreatedByDash: useWorktree && !!worktreeInfo,
       linkedItems: linkedItems ?? null,
     });
 

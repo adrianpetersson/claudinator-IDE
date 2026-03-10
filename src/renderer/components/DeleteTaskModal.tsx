@@ -88,18 +88,20 @@ export function DeleteTaskModal({ task, onClose, onConfirm }: DeleteTaskModalPro
                   </>
                 }
               />
-              <CircleCheck
-                checked={deleteRemoteBranch}
-                onChange={setDeleteRemoteBranch}
-                label={
-                  <>
-                    Delete remote branch{' '}
-                    <span className="text-muted-foreground/50 font-normal">
-                      origin/{task.branch}
-                    </span>
-                  </>
-                }
-              />
+              {task.branchCreatedByDash && (
+                <CircleCheck
+                  checked={deleteRemoteBranch}
+                  onChange={setDeleteRemoteBranch}
+                  label={
+                    <>
+                      Delete remote branch{' '}
+                      <span className="text-muted-foreground/50 font-normal">
+                        origin/{task.branch}
+                      </span>
+                    </>
+                  }
+                />
+              )}
             </div>
           )}
 

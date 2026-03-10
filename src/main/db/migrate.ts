@@ -99,5 +99,11 @@ export function runMigrations(): void {
     /* migration best effort */
   }
 
+  try {
+    rawDb.exec(`ALTER TABLE tasks ADD COLUMN branch_created_by_dash INTEGER DEFAULT 0`);
+  } catch {
+    /* already exists */
+  }
+
   rawDb.pragma('foreign_keys = ON');
 }

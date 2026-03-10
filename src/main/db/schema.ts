@@ -32,6 +32,7 @@ export const tasks = sqliteTable(
     useWorktree: integer('use_worktree', { mode: 'boolean' }).default(true),
     autoApprove: integer('auto_approve', { mode: 'boolean' }).default(false),
     linkedItems: text('linked_items'),
+    branchCreatedByDash: integer('branch_created_by_dash', { mode: 'boolean' }).default(false),
     archivedAt: text('archived_at'),
     createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),

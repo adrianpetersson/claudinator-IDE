@@ -44,6 +44,7 @@ export interface Task {
   status: string;
   useWorktree: boolean;
   autoApprove: boolean;
+  branchCreatedByDash: boolean;
   linkedItems: LinkedItem[] | null;
   archivedAt: string | null;
   createdAt: string;
