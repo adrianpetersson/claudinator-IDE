@@ -125,6 +125,17 @@
   left: 12px !important;
 }
 
+/* Sidebar shell terminal: tighter padding */
+.terminal-drawer .xterm {
+  padding-left: 6px;
+  padding-top: 4px;
+}
+.terminal-drawer .xterm .xterm-viewport,
+.terminal-drawer .xterm .xterm-screen {
+  left: 6px !important;
+  top: 4px !important;
+}
+
 /* ── Scrollbar ────────────────────────────────────────────── */
 
 ::-webkit-scrollbar {

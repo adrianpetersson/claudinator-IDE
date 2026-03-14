@@ -597,10 +597,14 @@ export class TerminalSessionManager {
 
   /** Reserve columns so the TUI doesn't render into the right edge. */
   private static readonly COL_RESERVE = 5;
+  private static readonly COL_RESERVE_SHELL = 1;
 
   /** Reduce cols for PTY so the TUI leaves a right-side gutter. */
   private ptyCols(cols: number): number {
-    return Math.max(1, cols - TerminalSessionManager.COL_RESERVE);
+    const reserve = this.shellOnly
+      ? TerminalSessionManager.COL_RESERVE_SHELL
+      : TerminalSessionManager.COL_RESERVE;
+    return Math.max(1, cols - reserve);
   }
 
   private fit() {
