@@ -14,6 +14,7 @@ import { CommitGraphModal } from './components/CommitGraph/CommitGraphModal';
 import { TaskModal } from './components/TaskModal';
 import { AddProjectModal } from './components/AddProjectModal';
 import { DeleteTaskModal } from './components/DeleteTaskModal';
+import { DeleteProjectModal, type DeleteProjectOptions } from './components/DeleteProjectModal';
 import { RemoteControlModal } from './components/RemoteControlModal';
 import { SettingsModal } from './components/SettingsModal';
 import { ProjectSettingsModal } from './components/ProjectSettingsModal';
@@ -57,6 +58,7 @@ export function App() {
     error: null,
   });
   const [deleteTaskTarget, setDeleteTaskTarget] = useState<Task | null>(null);
+  const [deleteProjectTarget, setDeleteProjectTarget] = useState<Project | null>(null);
   const [projectSettingsTarget, setProjectSettingsTarget] = useState<Project | null>(null);
   const [adoSetup, setAdoSetup] = useState<{
     projectId: string;
@@ -402,6 +404,9 @@ export function App() {
         } else if (deleteTaskTarget) {
           e.preventDefault();
           setDeleteTaskTarget(null);
+        } else if (deleteProjectTarget) {
+          e.preventDefault();
+          setDeleteProjectTarget(null);
         } else if (showDiff) {
           e.preventDefault();
           setShowDiff(false);
@@ -461,6 +466,7 @@ export function App() {
     tasksByProject,
     remoteControlModalPtyId,
     deleteTaskTarget,
+    deleteProjectTarget,
     showDiff,
     showCommitGraph,
     showSettings,
@@ -624,17 +630,45 @@ export function App() {
     }
   }
 
-  async function handleDeleteProject(id: string) {
-    await window.electronAPI.deleteProject(id);
-    if (activeProjectId === id) {
+  function handleDeleteProject(id: string) {
+    const project = projects.find((p) => p.id === id);
+    if (project) setDeleteProjectTarget(project);
+  }
+
+  async function handleDeleteProjectConfirm(options: DeleteProjectOptions) {
+    const project = deleteProjectTarget;
+    if (!project) return;
+
+    const projectTasks = tasksByProject[project.id] ?? [];
+
+    // Clean up worktrees and branches for each task
+    for (const task of projectTasks) {
+      if (task.useWorktree) {
+        await window.electronAPI.worktreeRemove({
+          projectPath: project.path,
+          worktreePath: task.path,
+          branch: task.branch,
+          options: {
+            deleteWorktreeDir: options.deleteWorktreeDirs,
+            deleteLocalBranch: options.deleteLocalBranches,
+            deleteRemoteBranch: options.deleteRemoteBranches && task.branchCreatedByDash,
+          },
+        });
+      }
+      sessionRegistry.dispose(`shell:${task.id}`);
+    }
+
+    await window.electronAPI.deleteProject(project.id);
+    if (activeProjectId === project.id) {
       setActiveProjectId(null);
       setActiveTaskId(null);
     }
     setTasksByProject((prev) => {
       const next = { ...prev };
-      delete next[id];
+      delete next[project.id];
       return next;
     });
+    setDeleteProjectTarget(null);
     await loadProjects();
   }
 
@@ -1204,6 +1238,15 @@ export function App() {
           task={deleteTaskTarget}
           onClose={() => setDeleteTaskTarget(null)}
           onConfirm={handleDeleteTaskConfirm}
+        />
+      )}
+
+      {deleteProjectTarget && (
+        <DeleteProjectModal
+          project={deleteProjectTarget}
+          tasks={tasksByProject[deleteProjectTarget.id] ?? []}
+          onClose={() => setDeleteProjectTarget(null)}
+          onConfirm={handleDeleteProjectConfirm}
         />
       )}
 
