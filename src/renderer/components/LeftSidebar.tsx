@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import type { Project, Task, RemoteControlState } from '../../shared/types';
 import { IconButton } from './ui/IconButton';
+import { Tooltip } from './ui/Tooltip';
 
 interface LeftSidebarProps {
   projects: Project[];
@@ -107,21 +108,23 @@ export function LeftSidebar({
         className="h-full flex flex-col items-center py-3 gap-1"
         style={{ background: 'hsl(var(--surface-1))' }}
       >
-        <button
-          onClick={onToggleCollapse}
-          className="p-1.5 rounded-md hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors titlebar-no-drag"
-          title="Expand sidebar"
-        >
-          <PanelLeftOpen size={18} strokeWidth={1.5} />
-        </button>
+        <Tooltip content="Expand sidebar">
+          <button
+            onClick={onToggleCollapse}
+            className="p-1.5 rounded-md hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors titlebar-no-drag"
+          >
+            <PanelLeftOpen size={18} strokeWidth={1.5} />
+          </button>
+        </Tooltip>
 
-        <button
-          onClick={onOpenFolder}
-          className="p-1.5 rounded-md hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors titlebar-no-drag"
-          title="Add project"
-        >
-          <FolderOpen size={18} strokeWidth={1.5} />
-        </button>
+        <Tooltip content="Add project">
+          <button
+            onClick={onOpenFolder}
+            className="p-1.5 rounded-md hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors titlebar-no-drag"
+          >
+            <FolderOpen size={18} strokeWidth={1.5} />
+          </button>
+        </Tooltip>
 
         <div className="w-6 border-t border-border/30 my-1" />
 
@@ -131,73 +134,78 @@ export function LeftSidebar({
             const activity = projectActivity(project.id);
 
             return (
-              <button
-                key={project.id}
-                draggable
-                onDragStart={(e) => {
-                  dragIdRef.current = project.id;
-                  setDraggingId(project.id);
-                  e.dataTransfer.effectAllowed = 'move';
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = 'move';
-                  const fromId = dragIdRef.current;
-                  if (!fromId || fromId === project.id) return;
-                  const fromIdx = projects.findIndex((p) => p.id === fromId);
-                  const toIdx = projects.findIndex((p) => p.id === project.id);
-                  if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
-                  const reordered = [...projects];
-                  const [moved] = reordered.splice(fromIdx, 1);
-                  reordered.splice(toIdx, 0, moved);
-                  onReorderProjects?.(reordered);
-                }}
-                onDrop={(e) => e.preventDefault()}
-                onDragEnd={() => {
-                  dragIdRef.current = null;
-                  setDraggingId(null);
-                }}
-                onClick={() => onSelectProject(project.id)}
-                className={`relative w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-medium transition-transform duration-200 ease-in-out titlebar-no-drag ${
-                  isActive
-                    ? 'bg-primary/15 text-primary'
-                    : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
-                } ${draggingId === project.id ? 'opacity-40' : ''}`}
-                title={project.name}
-              >
-                {project.name.charAt(0).toUpperCase()}
-                {activity && (
-                  <div
-                    title={
-                      activity === 'waiting'
-                        ? 'Waiting for user'
-                        : activity === 'busy'
-                          ? 'Claude is working'
-                          : 'Idle'
-                    }
-                    className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border-2 border-[hsl(var(--surface-1))] ${
-                      activity === 'waiting'
-                        ? 'bg-orange-500'
-                        : activity === 'busy'
-                          ? 'bg-amber-400 status-pulse'
-                          : 'bg-emerald-400'
-                    }`}
-                  />
-                )}
-              </button>
+              <Tooltip content={project.name}>
+                <button
+                  key={project.id}
+                  draggable
+                  onDragStart={(e) => {
+                    dragIdRef.current = project.id;
+                    setDraggingId(project.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    const fromId = dragIdRef.current;
+                    if (!fromId || fromId === project.id) return;
+                    const fromIdx = projects.findIndex((p) => p.id === fromId);
+                    const toIdx = projects.findIndex((p) => p.id === project.id);
+                    if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
+                    const reordered = [...projects];
+                    const [moved] = reordered.splice(fromIdx, 1);
+                    reordered.splice(toIdx, 0, moved);
+                    onReorderProjects?.(reordered);
+                  }}
+                  onDrop={(e) => e.preventDefault()}
+                  onDragEnd={() => {
+                    dragIdRef.current = null;
+                    setDraggingId(null);
+                  }}
+                  onClick={() => onSelectProject(project.id)}
+                  className={`relative w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-medium transition-transform duration-200 ease-in-out titlebar-no-drag ${
+                    isActive
+                      ? 'bg-primary/15 text-primary'
+                      : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+                  } ${draggingId === project.id ? 'opacity-40' : ''}`}
+                >
+                  {project.name.charAt(0).toUpperCase()}
+                  {activity && (
+                    <Tooltip
+                      content={
+                        activity === 'waiting'
+                          ? 'Waiting for user'
+                          : activity === 'busy'
+                            ? 'Claude is working'
+                            : 'Idle'
+                      }
+                    >
+                      <div
+                        className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border-2 border-[hsl(var(--surface-1))] ${
+                          activity === 'waiting'
+                            ? 'bg-orange-500'
+                            : activity === 'busy'
+                              ? 'bg-amber-400 status-pulse'
+                              : 'bg-emerald-400'
+                        }`}
+                      />
+                    </Tooltip>
+                  )}
+                </button>
+              </Tooltip>
             );
           })}
         </div>
 
         <div className="w-6 border-t border-border/30 my-1" />
 
-        <button
-          onClick={onOpenSettings}
-          className="p-2 rounded-md hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors titlebar-no-drag"
-          title="Settings"
-        >
-          <Settings size={18} strokeWidth={1.5} />
-        </button>
+        <Tooltip content="Settings">
+          <button
+            onClick={onOpenSettings}
+            className="p-2 rounded-md hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors titlebar-no-drag"
+          >
+            <Settings size={18} strokeWidth={1.5} />
+          </button>
+        </Tooltip>
       </div>
     );
   }
@@ -387,20 +395,17 @@ export function LeftSidebar({
                           >
                             {/* Status indicator */}
                             {activity === 'waiting' ? (
-                              <div
-                                title="Waiting for user"
-                                className="w-[6px] h-[6px] rounded-full bg-orange-500 flex-shrink-0"
-                              />
+                              <Tooltip content="Waiting for user">
+                                <div className="w-[6px] h-[6px] rounded-full bg-orange-500 flex-shrink-0" />
+                              </Tooltip>
                             ) : activity === 'busy' ? (
-                              <div
-                                title="Claude is working"
-                                className="w-[6px] h-[6px] rounded-full bg-amber-400 status-pulse flex-shrink-0"
-                              />
+                              <Tooltip content="Claude is working">
+                                <div className="w-[6px] h-[6px] rounded-full bg-amber-400 status-pulse flex-shrink-0" />
+                              </Tooltip>
                             ) : activity === 'idle' ? (
-                              <div
-                                title="Idle"
-                                className="w-[6px] h-[6px] rounded-full bg-emerald-400 flex-shrink-0"
-                              />
+                              <Tooltip content="Idle">
+                                <div className="w-[6px] h-[6px] rounded-full bg-emerald-400 flex-shrink-0" />
+                              </Tooltip>
                             ) : null}
                             {remoteControlStates[task.id] && (
                               <Globe

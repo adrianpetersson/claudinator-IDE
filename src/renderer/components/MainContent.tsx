@@ -4,6 +4,7 @@ import { ProjectOverview } from './ProjectOverview';
 import { FolderOpen, GitBranch, Globe, GitPullRequest, Code2 } from 'lucide-react';
 import type { Project, Task, RemoteControlState, PullRequestInfo } from '../../shared/types';
 import { linkedItemUrl, isAdoRemote } from '../../shared/urls';
+import { Tooltip } from './ui/Tooltip';
 
 interface MainContentProps {
   activeTask: Task | null;
@@ -176,14 +177,13 @@ export function MainContent({
             <div className="flex items-center gap-1">
               {activeTask.linkedItems.map((item) => {
                 const url = linkedItemUrl(item, activeProject?.gitRemote ?? null);
-                return url ? (
+                const linkEl = url ? (
                   <a
                     key={`${item.provider}-${item.id}`}
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-medium hover:bg-primary/20 transition-colors"
-                    title={item.title || undefined}
                   >
                     #{item.id}
                   </a>
@@ -191,50 +191,59 @@ export function MainContent({
                   <span
                     key={`${item.provider}-${item.id}`}
                     className="px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-medium"
-                    title={item.title || undefined}
                   >
                     #{item.id}
                   </span>
+                );
+                return item.title ? (
+                  <Tooltip key={`${item.provider}-${item.id}`} content={item.title}>
+                    {linkEl}
+                  </Tooltip>
+                ) : (
+                  linkEl
                 );
               })}
             </div>
           ) : null}
           <div className="ml-auto flex items-center gap-1.5">
             {taskActivity[activeTask.id] && (
-              <button
-                onClick={() => onEnableRemoteControl?.(activeTask.id)}
-                className={`p-1 rounded-md transition-colors ${
-                  remoteControlStates[activeTask.id]
-                    ? 'text-primary hover:bg-primary/10'
-                    : 'text-muted-foreground/50 hover:text-foreground hover:bg-accent/60'
-                }`}
-                title="Remote control"
-              >
-                <Globe size={14} strokeWidth={1.8} />
-              </button>
+              <Tooltip content="Remote control">
+                <button
+                  onClick={() => onEnableRemoteControl?.(activeTask.id)}
+                  className={`p-1 rounded-md transition-colors ${
+                    remoteControlStates[activeTask.id]
+                      ? 'text-primary hover:bg-primary/10'
+                      : 'text-muted-foreground/50 hover:text-foreground hover:bg-accent/60'
+                  }`}
+                >
+                  <Globe size={14} strokeWidth={1.8} />
+                </button>
+              </Tooltip>
             )}
-            <button
-              onClick={() => {
-                const stored = localStorage.getItem('preferredIDE');
-                const ide = stored === 'cursor' || stored === 'code' ? stored : undefined;
-                window.electronAPI.openInIDE({ folderPath: activeTask.path, ide });
-              }}
-              className="p-1 rounded-md transition-colors text-muted-foreground/50 hover:text-foreground hover:bg-accent/60"
-              title="Open in IDE"
-            >
-              <Code2 size={14} strokeWidth={1.8} />
-            </button>
-            {prInfo && (
-              <a
-                href={prInfo.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-[10px] font-medium hover:bg-green-500/20 transition-colors"
-                title={prInfo.title}
+            <Tooltip content="Open in IDE">
+              <button
+                onClick={() => {
+                  const stored = localStorage.getItem('preferredIDE');
+                  const ide = stored === 'cursor' || stored === 'code' ? stored : undefined;
+                  window.electronAPI.openInIDE({ folderPath: activeTask.path, ide });
+                }}
+                className="p-1 rounded-md transition-colors text-muted-foreground/50 hover:text-foreground hover:bg-accent/60"
               >
-                <GitPullRequest size={10} strokeWidth={2} />
-                PR #{prInfo.number}
-              </a>
+                <Code2 size={14} strokeWidth={1.8} />
+              </button>
+            </Tooltip>
+            {prInfo && (
+              <Tooltip content={prInfo.title}>
+                <a
+                  href={prInfo.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-[10px] font-medium hover:bg-green-500/20 transition-colors"
+                >
+                  <GitPullRequest size={10} strokeWidth={2} />
+                  PR #{prInfo.number}
+                </a>
+              </Tooltip>
             )}
           </div>
         </>

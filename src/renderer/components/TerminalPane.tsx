@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { ArrowDown } from 'lucide-react';
 import { sessionRegistry } from '../terminal/SessionRegistry';
+import { Tooltip } from './ui/Tooltip';
 
 const OVERLAY_MIN_MS = 2000;
 const OVERLAY_FADE_MS = 300;
@@ -122,16 +123,17 @@ export function TerminalPane({ id, cwd, autoApprove }: TerminalPaneProps) {
         </div>
       )}
       {!isAtBottom && (
-        <button
-          onClick={() => {
-            const session = sessionRegistry.get(id);
-            session?.scrollToBottom();
-          }}
-          className="absolute bottom-4 right-4 z-10 w-8 h-8 rounded-full bg-accent/80 hover:bg-accent text-foreground/70 hover:text-foreground flex items-center justify-center shadow-md backdrop-blur-sm transition-all duration-150 hover:scale-105"
-          title="Scroll to bottom"
-        >
-          <ArrowDown size={16} strokeWidth={2} />
-        </button>
+        <Tooltip content="Scroll to bottom">
+          <button
+            onClick={() => {
+              const session = sessionRegistry.get(id);
+              session?.scrollToBottom();
+            }}
+            className="absolute bottom-4 right-4 z-10 w-8 h-8 rounded-full bg-accent/80 hover:bg-accent text-foreground/70 hover:text-foreground flex items-center justify-center shadow-md backdrop-blur-sm transition-all duration-150 hover:scale-105"
+          >
+            <ArrowDown size={16} strokeWidth={2} />
+          </button>
+        </Tooltip>
       )}
     </div>
   );

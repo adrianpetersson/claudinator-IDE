@@ -16,6 +16,7 @@ import {
 import type { Project, Task } from '../../shared/types';
 import { linkedItemUrl } from '../../shared/urls';
 import { IconButton } from './ui/IconButton';
+import { Tooltip } from './ui/Tooltip';
 
 interface ProjectOverviewProps {
   project: Project;
@@ -45,15 +46,25 @@ function timeAgo(dateStr: string): string {
 
 function ActivityDot({ activity }: { activity?: 'busy' | 'idle' | 'waiting' }) {
   if (activity === 'waiting') {
-    return <div title="Waiting for user" className="w-2 h-2 rounded-full bg-orange-500" />;
+    return (
+      <Tooltip content="Waiting for user">
+        <div className="w-2 h-2 rounded-full bg-orange-500" />
+      </Tooltip>
+    );
   }
   if (activity === 'busy') {
     return (
-      <div title="Claude is working" className="w-2 h-2 rounded-full bg-amber-400 status-pulse" />
+      <Tooltip content="Claude is working">
+        <div className="w-2 h-2 rounded-full bg-amber-400 status-pulse" />
+      </Tooltip>
     );
   }
   if (activity === 'idle') {
-    return <div title="Idle" className="w-2 h-2 rounded-full bg-emerald-400" />;
+    return (
+      <Tooltip content="Idle">
+        <div className="w-2 h-2 rounded-full bg-emerald-400" />
+      </Tooltip>
+    );
   }
   return <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />;
 }
@@ -102,25 +113,26 @@ export function ProjectOverview({
               {/* Project metadata */}
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 ml-12 text-[11px] text-muted-foreground">
                 {project.path && (
-                  <span className="font-mono truncate max-w-[300px]" title={project.path}>
-                    {project.path}
-                  </span>
+                  <Tooltip content={project.path}>
+                    <span className="font-mono truncate max-w-[300px]">{project.path}</span>
+                  </Tooltip>
                 )}
                 {project.gitRemote && (
-                  <a
-                    href={project.gitRemote}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      window.electronAPI.openExternal(project.gitRemote!);
-                    }}
-                    className="flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer"
-                    title={project.gitRemote}
-                  >
-                    <Globe size={11} strokeWidth={1.8} />
-                    <span className="truncate max-w-[200px]">
-                      {remoteDisplayName(project.gitRemote)}
-                    </span>
-                  </a>
+                  <Tooltip content={project.gitRemote!}>
+                    <a
+                      href={project.gitRemote}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        window.electronAPI.openExternal(project.gitRemote!);
+                      }}
+                      className="flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer"
+                    >
+                      <Globe size={11} strokeWidth={1.8} />
+                      <span className="truncate max-w-[200px]">
+                        {remoteDisplayName(project.gitRemote)}
+                      </span>
+                    </a>
+                  </Tooltip>
                 )}
                 {project.baseRef && (
                   <span className="flex items-center gap-1">
@@ -213,23 +225,24 @@ export function ProjectOverview({
                     className="relative flex flex-col p-4 rounded-xl border border-border bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-3))] hover:border-foreground/20 transition-all duration-150 text-left group"
                   >
                     {/* Open in IDE — top right */}
-                    <div
-                      role="button"
-                      tabIndex={-1}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const stored = localStorage.getItem('preferredIDE');
-                        const ide = stored === 'cursor' || stored === 'code' ? stored : undefined;
-                        window.electronAPI.openInIDE({
-                          folderPath: task.path || project.path,
-                          ide,
-                        });
-                      }}
-                      className="absolute top-3 right-3 p-1 rounded-md transition-colors text-muted-foreground hover:text-foreground hover:bg-accent/60 opacity-0 group-hover:opacity-100"
-                      title="Open in IDE"
-                    >
-                      <Code2 size={13} strokeWidth={1.8} />
-                    </div>
+                    <Tooltip content="Open in IDE">
+                      <div
+                        role="button"
+                        tabIndex={-1}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const stored = localStorage.getItem('preferredIDE');
+                          const ide = stored === 'cursor' || stored === 'code' ? stored : undefined;
+                          window.electronAPI.openInIDE({
+                            folderPath: task.path || project.path,
+                            ide,
+                          });
+                        }}
+                        className="absolute top-3 right-3 p-1 rounded-md transition-colors text-muted-foreground hover:text-foreground hover:bg-accent/60 opacity-0 group-hover:opacity-100"
+                      >
+                        <Code2 size={13} strokeWidth={1.8} />
+                      </div>
+                    </Tooltip>
 
                     {/* Task name + status */}
                     <div className="flex items-start gap-2.5 mb-3 pr-6">
@@ -282,7 +295,7 @@ export function ProjectOverview({
                                       #{item.id}
                                     </span>
                                   );
-                                  return url ? (
+                                  const link = url ? (
                                     <a
                                       key={`${item.provider}-${item.id}`}
                                       href={url}
@@ -292,17 +305,21 @@ export function ProjectOverview({
                                         window.electronAPI.openExternal(url);
                                       }}
                                       className="hover:opacity-80 transition-opacity"
-                                      title={item.title || undefined}
                                     >
                                       {badge}
                                     </a>
                                   ) : (
-                                    <span
+                                    <span key={`${item.provider}-${item.id}`}>{badge}</span>
+                                  );
+                                  return item.title ? (
+                                    <Tooltip
+                                      content={item.title}
                                       key={`${item.provider}-${item.id}`}
-                                      title={item.title || undefined}
                                     >
-                                      {badge}
-                                    </span>
+                                      {link}
+                                    </Tooltip>
+                                  ) : (
+                                    link
                                   );
                                 })}
                               </div>

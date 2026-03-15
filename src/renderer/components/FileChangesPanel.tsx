@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Tooltip } from './ui/Tooltip';
 import {
   Plus,
   Minus,
@@ -104,27 +105,30 @@ function FileItem({
       onClick={onViewDiff}
     >
       {/* Staged checkbox */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          file.staged ? onUnstage() : onStage();
-        }}
-        className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center flex-shrink-0 transition-colors ${
-          file.staged
-            ? 'bg-primary border-primary text-primary-foreground'
-            : 'border-muted-foreground/30 hover:border-muted-foreground/50'
-        }`}
-        title={file.staged ? 'Unstage' : 'Stage'}
-      >
-        {file.staged && <Check size={9} strokeWidth={3} />}
-      </button>
+      <Tooltip content={file.staged ? 'Unstage' : 'Stage'}>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            file.staged ? onUnstage() : onStage();
+          }}
+          className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center flex-shrink-0 transition-colors ${
+            file.staged
+              ? 'bg-primary border-primary text-primary-foreground'
+              : 'border-muted-foreground/30 hover:border-muted-foreground/50'
+          }`}
+        >
+          {file.staged && <Check size={9} strokeWidth={3} />}
+        </button>
+      </Tooltip>
 
       <StatusIcon status={file.status} />
 
-      <span className="truncate flex-1 min-w-0" title={file.path}>
-        <span className="text-foreground/90">{fileName}</span>
-        {dirPath && <span className="text-muted-foreground/40 ml-1">{dirPath}/</span>}
-      </span>
+      <Tooltip content={file.path}>
+        <span className="truncate flex-1 min-w-0">
+          <span className="text-foreground/90">{fileName}</span>
+          {dirPath && <span className="text-muted-foreground/40 ml-1">{dirPath}/</span>}
+        </span>
+      </Tooltip>
 
       {/* Stat badge */}
       {(file.additions > 0 || file.deletions > 0) && (
@@ -148,16 +152,17 @@ function FileItem({
       {/* Hover discard action (unstaged only) */}
       {!file.staged && (
         <div className="opacity-0 group-hover:opacity-100 flex gap-px flex-shrink-0 transition-all duration-150">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDiscard();
-            }}
-            className="p-[3px] rounded hover:bg-destructive/15 text-muted-foreground/50 hover:text-destructive"
-            title="Discard changes"
-          >
-            <Undo2 size={11} strokeWidth={2} />
-          </button>
+          <Tooltip content="Discard changes">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDiscard();
+              }}
+              className="p-[3px] rounded hover:bg-destructive/15 text-muted-foreground/50 hover:text-destructive"
+            >
+              <Undo2 size={11} strokeWidth={2} />
+            </button>
+          </Tooltip>
         </div>
       )}
     </div>
@@ -212,13 +217,14 @@ export function FileChangesPanel({
         className="h-full flex flex-col items-center py-2 gap-2"
         style={{ background: 'hsl(var(--surface-1))' }}
       >
-        <button
-          onClick={onToggleCollapse}
-          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-accent/60 text-muted-foreground/50 hover:text-foreground transition-colors"
-          title="Expand changes panel"
-        >
-          <PanelRightOpen size={18} strokeWidth={1.5} />
-        </button>
+        <Tooltip content="Expand changes panel">
+          <button
+            onClick={onToggleCollapse}
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-accent/60 text-muted-foreground/50 hover:text-foreground transition-colors"
+          >
+            <PanelRightOpen size={18} strokeWidth={1.5} />
+          </button>
+        </Tooltip>
         <div className="flex flex-col items-center gap-1">
           <div className="w-8 h-8 rounded-lg bg-accent/40 flex items-center justify-center">
             <FileDiff size={14} className="text-muted-foreground/50" strokeWidth={1.5} />
@@ -286,13 +292,14 @@ export function FileChangesPanel({
       <div className="flex items-center justify-between px-3 h-10 flex-shrink-0 border-b border-border/60">
         <div className="flex items-center gap-2">
           {onToggleCollapse && (
-            <button
-              onClick={onToggleCollapse}
-              className="p-[3px] -ml-1 rounded hover:bg-accent text-muted-foreground/60 hover:text-foreground transition-colors"
-              title="Collapse changes panel"
-            >
-              <PanelRightClose size={15} strokeWidth={1.8} />
-            </button>
+            <Tooltip content="Collapse changes panel">
+              <button
+                onClick={onToggleCollapse}
+                className="p-[3px] -ml-1 rounded hover:bg-accent text-muted-foreground/60 hover:text-foreground transition-colors"
+              >
+                <PanelRightClose size={15} strokeWidth={1.8} />
+              </button>
+            </Tooltip>
           )}
           <span className="text-[11px] font-semibold uppercase text-foreground/80 tracking-[0.08em]">
             Changes
@@ -305,13 +312,14 @@ export function FileChangesPanel({
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           {onShowCommitGraph && (
-            <button
-              onClick={onShowCommitGraph}
-              className="p-[3px] rounded hover:bg-accent text-muted-foreground/40 hover:text-foreground transition-colors"
-              title="Commit graph"
-            >
-              <GitBranch size={11} strokeWidth={2} />
-            </button>
+            <Tooltip content="Commit graph">
+              <button
+                onClick={onShowCommitGraph}
+                className="p-[3px] rounded hover:bg-accent text-muted-foreground/40 hover:text-foreground transition-colors"
+              >
+                <GitBranch size={11} strokeWidth={2} />
+              </button>
+            </Tooltip>
           )}
           {gitStatus.branch && (gitStatus.ahead > 0 || gitStatus.behind > 0) && (
             <div className="flex items-center gap-1 text-muted-foreground/40 mr-1">
@@ -330,22 +338,24 @@ export function FileChangesPanel({
             </div>
           )}
           {!allStaged && unstagedFiles.length > 0 && (
-            <button
-              onClick={() => onStageAll()}
-              className="p-[3px] rounded hover:bg-accent text-muted-foreground/40 hover:text-foreground transition-colors"
-              title="Stage all"
-            >
-              <Plus size={11} strokeWidth={2} />
-            </button>
+            <Tooltip content="Stage all">
+              <button
+                onClick={() => onStageAll()}
+                className="p-[3px] rounded hover:bg-accent text-muted-foreground/40 hover:text-foreground transition-colors"
+              >
+                <Plus size={11} strokeWidth={2} />
+              </button>
+            </Tooltip>
           )}
           {stagedFiles.length > 0 && (
-            <button
-              onClick={() => onUnstageAll()}
-              className="p-[3px] rounded hover:bg-accent text-muted-foreground/40 hover:text-foreground transition-colors"
-              title="Unstage all"
-            >
-              <Minus size={11} strokeWidth={2} />
-            </button>
+            <Tooltip content="Unstage all">
+              <button
+                onClick={() => onUnstageAll()}
+                className="p-[3px] rounded hover:bg-accent text-muted-foreground/40 hover:text-foreground transition-colors"
+              >
+                <Minus size={11} strokeWidth={2} />
+              </button>
+            </Tooltip>
           )}
         </div>
       </div>

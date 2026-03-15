@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Check, AlertCircle, Sun, Moon, RotateCcw, Download } from 'lucide-react';
+import { Tooltip } from './ui/Tooltip';
 import type { KeyBindingMap, KeyBinding } from '../keybindings';
 import {
   getBindingKeys,
@@ -735,13 +736,14 @@ export function SettingsModal({
                               onChange={(updated) => handleBindingChange(binding.id, updated)}
                             />
                             {modified && (
-                              <button
-                                onClick={() => handleResetOne(binding.id)}
-                                className="p-1.5 rounded-md text-foreground/30 hover:text-foreground hover:bg-accent/60 opacity-0 group-hover:opacity-100 transition-all duration-150"
-                                title="Reset to default"
-                              >
-                                <RotateCcw size={11} strokeWidth={2} />
-                              </button>
+                              <Tooltip content="Reset to default">
+                                <button
+                                  onClick={() => handleResetOne(binding.id)}
+                                  className="p-1.5 rounded-md text-foreground/30 hover:text-foreground hover:bg-accent/60 opacity-0 group-hover:opacity-100 transition-all duration-150"
+                                >
+                                  <RotateCcw size={11} strokeWidth={2} />
+                                </button>
+                              </Tooltip>
                             )}
                           </div>
                         </div>
