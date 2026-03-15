@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   FolderOpen,
   Plus,
@@ -37,6 +37,7 @@ interface LeftSidebarProps {
   onToggleCollapse: () => void;
   taskActivity: Record<string, 'busy' | 'idle' | 'waiting'>;
   remoteControlStates?: Record<string, RemoteControlState>;
+  onReorderProjects?: (reordered: Project[]) => void;
 }
 
 export function LeftSidebar({
@@ -59,9 +60,12 @@ export function LeftSidebar({
   onToggleCollapse,
   taskActivity,
   remoteControlStates = {},
+  onReorderProjects,
 }: LeftSidebarProps) {
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
   const [collapsedArchived, setCollapsedArchived] = useState<Set<string>>(new Set());
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const dragIdRef = useRef<string | null>(null);
 
   function toggleCollapse(projectId: string) {
     setCollapsedProjects((prev) => {
@@ -129,12 +133,36 @@ export function LeftSidebar({
             return (
               <button
                 key={project.id}
+                draggable
+                onDragStart={(e) => {
+                  dragIdRef.current = project.id;
+                  setDraggingId(project.id);
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  const fromId = dragIdRef.current;
+                  if (!fromId || fromId === project.id) return;
+                  const fromIdx = projects.findIndex((p) => p.id === fromId);
+                  const toIdx = projects.findIndex((p) => p.id === project.id);
+                  if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
+                  const reordered = [...projects];
+                  const [moved] = reordered.splice(fromIdx, 1);
+                  reordered.splice(toIdx, 0, moved);
+                  onReorderProjects?.(reordered);
+                }}
+                onDrop={(e) => e.preventDefault()}
+                onDragEnd={() => {
+                  dragIdRef.current = null;
+                  setDraggingId(null);
+                }}
                 onClick={() => onSelectProject(project.id)}
-                className={`relative w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-medium transition-all duration-150 titlebar-no-drag ${
+                className={`relative w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-medium transition-transform duration-200 ease-in-out titlebar-no-drag ${
                   isActive
                     ? 'bg-primary/15 text-primary'
                     : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
-                }`}
+                } ${draggingId === project.id ? 'opacity-40' : ''}`}
                 title={project.name}
               >
                 {project.name.charAt(0).toUpperCase()}
@@ -218,11 +246,37 @@ export function LeftSidebar({
               <div key={project.id}>
                 {/* Project row */}
                 <div
-                  className={`group flex items-center gap-1.5 px-2 h-8 rounded-md text-sm cursor-pointer transition-all duration-150 ${
+                  draggable
+                  onDragStart={(e) => {
+                    dragIdRef.current = project.id;
+                    setDraggingId(project.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                    const el = e.currentTarget;
+                    e.dataTransfer.setDragImage(el, el.offsetWidth / 2, el.offsetHeight / 2);
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    const fromId = dragIdRef.current;
+                    if (!fromId || fromId === project.id) return;
+                    const fromIdx = projects.findIndex((p) => p.id === fromId);
+                    const toIdx = projects.findIndex((p) => p.id === project.id);
+                    if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
+                    const reordered = [...projects];
+                    const [moved] = reordered.splice(fromIdx, 1);
+                    reordered.splice(toIdx, 0, moved);
+                    onReorderProjects?.(reordered);
+                  }}
+                  onDrop={(e) => e.preventDefault()}
+                  onDragEnd={() => {
+                    dragIdRef.current = null;
+                    setDraggingId(null);
+                  }}
+                  className={`group flex items-center gap-1.5 px-2 h-8 rounded-md text-sm cursor-pointer transition-transform duration-200 ease-in-out ${
                     isActive
                       ? 'text-foreground font-medium'
                       : 'text-muted-foreground hover:text-foreground'
-                  }`}
+                  } ${draggingId === project.id ? 'opacity-40' : ''}`}
                   onClick={() => {
                     onSelectProject(project.id);
                     if (collapsedProjects.has(project.id)) {

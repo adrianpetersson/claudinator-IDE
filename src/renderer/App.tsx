@@ -525,10 +525,38 @@ export function App() {
 
   // ── Data Loading ─────────────────────────────────────────
 
+  function applyProjectOrder(projectList: Project[]): Project[] {
+    try {
+      const saved = localStorage.getItem('projectOrder');
+      if (!saved) return projectList;
+      const order: string[] = JSON.parse(saved);
+      const validIds = new Set(projectList.map((p) => p.id));
+      const cleanOrder = order.filter((id) => validIds.has(id));
+      // Prune stale IDs from storage
+      if (cleanOrder.length !== order.length) {
+        localStorage.setItem('projectOrder', JSON.stringify(cleanOrder));
+      }
+      const orderMap = new Map(cleanOrder.map((id, i) => [id, i]));
+      return [...projectList].sort((a, b) => {
+        const ai = orderMap.get(a.id) ?? Infinity;
+        const bi = orderMap.get(b.id) ?? Infinity;
+        return ai - bi;
+      });
+    } catch {
+      return projectList;
+    }
+  }
+
+  function handleReorderProjects(reordered: Project[]) {
+    setProjects(reordered);
+    // Only persist IDs that still exist, pruning stale entries
+    localStorage.setItem('projectOrder', JSON.stringify(reordered.map((p) => p.id)));
+  }
+
   async function loadProjects() {
     const resp = await window.electronAPI.getProjects();
     if (resp.success && resp.data) {
-      setProjects(resp.data);
+      setProjects(applyProjectOrder(resp.data));
       if (resp.data.length > 0) {
         // Only default to first project if no valid selection exists
         setActiveProjectId((prev) => {
@@ -1022,6 +1050,7 @@ export function App() {
               onToggleCollapse={toggleSidebar}
               taskActivity={taskActivity}
               remoteControlStates={remoteControlStates}
+              onReorderProjects={handleReorderProjects}
             />
           </ShellDrawerWrapper>
         </Panel>
