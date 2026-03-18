@@ -1,15 +1,18 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { homedir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { app } from 'electron';
 import type { ChildProcess } from 'node:child_process';
 import type { WebContents } from 'electron';
 import type { PixelAgentsConfig, PixelAgentsStatus, PixelAgentsOfficeStatus } from '@shared/types';
+import { ConnectionConfigService } from './ConnectionConfigService';
 
-const CONFIG_DIR = join(homedir(), '.pixel-agents');
-const CONFIG_PATH = join(CONFIG_DIR, 'offices.json');
+// Config lives inside Electron's userData dir (~/Library/Application Support/Dash/)
+// The watcher is spawned with --config pointing here, so no need for ~/.pixel-agents/
+function getConfigPath(): string {
+  return join(app.getPath('userData'), 'pixel-agents.json');
+}
 const RESPAWN_DELAY = 3000;
 
 export class PixelAgentsService {
@@ -25,17 +28,68 @@ export class PixelAgentsService {
 
   static readConfig(): PixelAgentsConfig | null {
     try {
-      if (!existsSync(CONFIG_PATH)) return null;
-      return JSON.parse(readFileSync(CONFIG_PATH, 'utf-8'));
+      if (!existsSync(getConfigPath())) return null;
+      const raw = JSON.parse(readFileSync(getConfigPath(), 'utf-8'));
+      // Return config with token presence indicators (not actual tokens)
+      return {
+        name: raw.name || '',
+        palette: raw.palette,
+        hueShift: raw.hueShift,
+        offices: (raw.offices || []).map(
+          (o: { id: string; url: string; token?: string; enabled: boolean }) => ({
+            id: o.id,
+            url: o.url,
+            // Signal that a token exists without exposing it
+            token: o.token ? '••••••••' : null,
+            enabled: o.enabled,
+          }),
+        ),
+      };
     } catch {
       return null;
     }
   }
 
-  static writeConfig(config: PixelAgentsConfig): void {
-    mkdirSync(CONFIG_DIR, { recursive: true });
+  /**
+   * Save config from the renderer. Tokens in the config are either:
+   * - A new plaintext token (to be encrypted and stored)
+   * - The placeholder '••••••••' (keep existing encrypted token)
+   * - null (public office, remove any stored token)
+   */
+  static saveConfig(config: PixelAgentsConfig): void {
+    // Track which office IDs are still present
+    const currentIds = new Set(config.offices.map((o) => o.id));
+
+    // Clean up tokens for removed offices
+    const allTokens = ConnectionConfigService.getAllPixelAgentsTokens();
+    for (const officeId of Object.keys(allTokens)) {
+      if (!currentIds.has(officeId)) {
+        ConnectionConfigService.removePixelAgentsToken(officeId);
+      }
+    }
+
+    // Store new/updated tokens in encrypted storage
+    for (const office of config.offices) {
+      if (office.token && office.token !== '••••••••') {
+        // New plaintext token — encrypt and store
+        ConnectionConfigService.savePixelAgentsToken(office.id, office.token);
+      } else if (office.token === null) {
+        // Public office — remove any stored token
+        ConnectionConfigService.removePixelAgentsToken(office.id);
+      }
+      // '••••••••' = keep existing token, do nothing
+    }
+
+    // Write offices.json with decrypted tokens for the watcher
+    PixelAgentsService.writeOfficesJson(config);
+  }
+
+  /** Write offices.json with real (decrypted) tokens for the watcher process */
+  private static writeOfficesJson(config: PixelAgentsConfig): void {
+    const decryptedTokens = ConnectionConfigService.getAllPixelAgentsTokens();
+
     writeFileSync(
-      CONFIG_PATH,
+      getConfigPath(),
       JSON.stringify(
         {
           name: config.name,
@@ -44,7 +98,7 @@ export class PixelAgentsService {
           offices: config.offices.map((o) => ({
             id: o.id,
             url: o.url,
-            token: o.token || null,
+            token: decryptedTokens[o.id] || null,
             enabled: o.enabled,
           })),
         },
@@ -64,12 +118,12 @@ export class PixelAgentsService {
       return;
     }
 
-    console.log(`[pixel-agents] Starting watcher: ${binPath} --config ${CONFIG_PATH}`);
+    console.log(`[pixel-agents] Starting watcher: ${binPath} --config ${getConfigPath()}`);
 
     PixelAgentsService.running = true;
     PixelAgentsService.officeStatuses = {};
 
-    const child = spawn(binPath, ['--config', CONFIG_PATH], {
+    const child = spawn(binPath, ['--config', getConfigPath()], {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, NODE_NO_WARNINGS: '1' },
     });

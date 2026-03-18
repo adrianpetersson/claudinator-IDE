@@ -13,7 +13,7 @@ export function registerPixelAgentsIpc(): void {
 
   ipcMain.handle('pixelAgents:saveConfig', (_event, config: PixelAgentsConfig) => {
     try {
-      PixelAgentsService.writeConfig(config);
+      PixelAgentsService.saveConfig(config);
       const hasEnabled = config.name && config.offices.some((o) => o.enabled);
       if (hasEnabled) {
         PixelAgentsService.restart();
