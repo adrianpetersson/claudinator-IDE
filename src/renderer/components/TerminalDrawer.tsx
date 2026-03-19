@@ -1,6 +1,11 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Terminal, ChevronDown, ChevronUp } from 'lucide-react';
+import { Terminal, ChevronDown, ChevronUp, X, Plus } from 'lucide-react';
 import { sessionRegistry } from '../terminal/SessionRegistry';
+
+interface TerminalTab {
+  id: string;
+  label: string;
+}
 
 /**
  * Shorten a path for display: `[...]/parentOfInitial/current/sub/dirs`.
@@ -46,33 +51,66 @@ export function TerminalDrawer({
   const shellId = `shell:${taskId}`;
   const [displayCwd, setDisplayCwd] = useState(cwd);
 
+  // Tab state — persisted to localStorage per task
+  const [tabs, setTabs] = useState<TerminalTab[]>(() => {
+    try {
+      const stored = localStorage.getItem(`shellTabs:${taskId}`);
+      return stored ? JSON.parse(stored) : [{ id: shellId, label: '1' }];
+    } catch {
+      return [{ id: shellId, label: '1' }];
+    }
+  });
+
+  const [activeTabId, setActiveTabId] = useState<string>(() => {
+    try {
+      return localStorage.getItem(`shellActiveTab:${taskId}`) ?? shellId;
+    } catch {
+      return shellId;
+    }
+  });
+
+  // Persist tab state
+  useEffect(() => {
+    localStorage.setItem(`shellTabs:${taskId}`, JSON.stringify(tabs));
+  }, [tabs, taskId]);
+
+  useEffect(() => {
+    localStorage.setItem(`shellActiveTab:${taskId}`, activeTabId);
+  }, [activeTabId, taskId]);
+
   // Reset displayCwd when the task's cwd prop changes (e.g. switching tasks)
   useEffect(() => {
     setDisplayCwd(cwd);
   }, [cwd]);
 
-  // Attach once and keep alive across collapse/expand
+  // Attach the active tab's session to the container
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
+    // Remove previous session's xterm DOM before attaching a new one,
+    // since detach() leaves the element in place for React-driven unmounts.
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
+
     const session = sessionRegistry.getOrCreate({
-      id: shellId,
+      id: activeTabId,
       cwd,
       shellOnly: true,
     });
     session.attach(container, { autoFocus: false });
 
-    setDisplayCwd(session.currentCwd);
+    setDisplayCwd(session.currentCwd || cwd);
 
     session.onCwdChange((newCwd) => {
       setDisplayCwd(newCwd);
     });
 
     return () => {
-      sessionRegistry.detach(shellId);
+      sessionRegistry.detach(activeTabId);
     };
-  }, [shellId, cwd]);
+  }, [activeTabId, cwd]);
 
   // Focus terminal when the user explicitly expands the drawer
   const prevCollapsedRef = useRef(collapsed);
@@ -81,12 +119,29 @@ export function TerminalDrawer({
     prevCollapsedRef.current = collapsed;
 
     if (wasCollapsed && !collapsed) {
-      const session = sessionRegistry.get(shellId);
+      const session = sessionRegistry.get(activeTabId);
       if (session) {
         requestAnimationFrame(() => session.focus());
       }
     }
-  }, [collapsed, shellId]);
+  }, [collapsed, activeTabId]);
+
+  function handleAddTab() {
+    const newId = `shell:${taskId}:t${Date.now()}`;
+    const newTab: TerminalTab = { id: newId, label: String(tabs.length + 1) };
+    setTabs((prev) => [...prev, newTab]);
+    setActiveTabId(newId);
+  }
+
+  function handleCloseTab(tabId: string) {
+    if (tabs.length <= 1) return;
+    const idx = tabs.findIndex((t) => t.id === tabId);
+    const updated = tabs.filter((t) => t.id !== tabId);
+    sessionRegistry.dispose(tabId);
+    const newActive = activeTabId === tabId ? updated[Math.max(0, idx - 1)].id : activeTabId;
+    setTabs(updated);
+    setActiveTabId(newActive);
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -102,19 +157,52 @@ export function TerminalDrawer({
         </button>
       ) : (
         <div
-          className="flex items-center gap-2 px-3 h-8 flex-shrink-0 border-b border-border/40"
+          className="flex items-center h-8 flex-shrink-0 border-b border-border/40"
           style={{ background: 'hsl(var(--surface-1))' }}
         >
-          <Terminal size={12} strokeWidth={1.8} className="text-foreground/80" />
-          <span className="text-[11px] font-semibold uppercase text-foreground/80 tracking-[0.08em]">
-            {label}
-          </span>
-          <span className="text-[11px] font-mono text-muted-foreground/50 truncate flex-1">
+          <Terminal
+            size={12}
+            strokeWidth={1.8}
+            className="flex-shrink-0 ml-3 mr-1.5 text-foreground/80"
+          />
+          {tabs.map((tab) => (
+            <div
+              key={tab.id}
+              className={`flex items-center gap-1 px-2 h-full border-b-2 cursor-pointer transition-colors flex-shrink-0 select-none ${
+                tab.id === activeTabId
+                  ? 'border-primary text-foreground'
+                  : 'border-transparent text-muted-foreground/60 hover:text-foreground'
+              }`}
+              onClick={() => setActiveTabId(tab.id)}
+            >
+              <span className="text-[11px] font-medium">{tab.label}</span>
+              {tabs.length > 1 && (
+                <button
+                  className="w-3.5 h-3.5 rounded flex items-center justify-center text-muted-foreground/40 hover:text-foreground hover:bg-accent transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCloseTab(tab.id);
+                  }}
+                  aria-label={`Close terminal ${tab.label}`}
+                >
+                  <X size={9} strokeWidth={2} />
+                </button>
+              )}
+            </div>
+          ))}
+          <button
+            className="ml-1 w-5 h-5 flex items-center justify-center rounded text-muted-foreground/40 hover:text-foreground hover:bg-accent transition-colors flex-shrink-0"
+            onClick={handleAddTab}
+            aria-label="Add terminal"
+          >
+            <Plus size={11} strokeWidth={2} />
+          </button>
+          <span className="text-[11px] font-mono text-muted-foreground/50 truncate flex-1 ml-2">
             {shortenCwd(displayCwd, cwd)}
           </span>
           <button
             onClick={onCollapse}
-            className="p-1 rounded hover:bg-accent text-muted-foreground/40 hover:text-foreground transition-colors"
+            className="p-1 mr-1 rounded hover:bg-accent text-muted-foreground/40 hover:text-foreground transition-colors flex-shrink-0"
           >
             <ChevronDown size={12} strokeWidth={2} />
           </button>

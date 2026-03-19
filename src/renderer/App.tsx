@@ -748,6 +748,7 @@ export function App() {
         });
       }
       sessionRegistry.dispose(`shell:${task.id}`);
+      sessionRegistry.disposeByPrefix(`shell:${task.id}:`);
     }
 
     await window.electronAPI.deleteProject(project.id);
@@ -916,8 +917,9 @@ export function App() {
         }
       }
 
-      // Clean up shell terminal session
+      // Clean up shell terminal sessions (first tab + any extra tabs)
       sessionRegistry.dispose(`shell:${task.id}`);
+      sessionRegistry.disposeByPrefix(`shell:${task.id}:`);
 
       await window.electronAPI.deleteTask(task.id);
       if (activeTaskId === task.id) {
