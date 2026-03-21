@@ -203,7 +203,8 @@ export interface ElectronAPI {
   // Git detection
   detectGit: (
     folderPath: string,
-  ) => Promise<IpcResponse<{ remote: string | null; branch: string | null }>>;
+  ) => Promise<IpcResponse<{ isGitRepo: boolean; remote: string | null; branch: string | null }>>;
+  gitInit: (folderPath: string) => Promise<IpcResponse<null>>;
   detectClaude: () => Promise<
     IpcResponse<{ installed: boolean; version: string | null; path: string | null }>
   >;
@@ -275,7 +276,7 @@ export interface ElectronAPI {
     }) => void,
   ) => () => void;
   onAutoUpdateDownloaded: (callback: () => void) => () => void;
-  onAutoUpdateError: (callback: (message: string) => void) => () => void;
+  onAutoUpdateError: (callback: (info: { message: string; detail: string }) => void) => () => void;
 }
 
 declare global {

@@ -164,6 +164,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Git detection
   detectGit: (folderPath: string) => ipcRenderer.invoke('app:detectGit', folderPath),
+  gitInit: (folderPath: string) => ipcRenderer.invoke('git:init', folderPath),
   detectClaude: () => ipcRenderer.invoke('app:detectClaude'),
 
   // Git operations
@@ -268,8 +269,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener('autoUpdate:downloaded', handler);
     };
   },
-  onAutoUpdateError: (callback: (message: string) => void) => {
-    const handler = (_event: unknown, message: string) => callback(message);
+  onAutoUpdateError: (callback: (info: { message: string; detail: string }) => void) => {
+    const handler = (_event: unknown, info: { message: string; detail: string }) => callback(info);
     ipcRenderer.on('autoUpdate:error', handler);
     return () => {
       ipcRenderer.removeListener('autoUpdate:error', handler);
