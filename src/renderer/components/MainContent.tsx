@@ -1,9 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { TerminalPane } from './TerminalPane';
 import { ProjectOverview } from './ProjectOverview';
-import { FolderOpen, GitBranch, Globe, GitPullRequest, Code2 } from 'lucide-react';
-import type { Project, Task, RemoteControlState, PullRequestInfo } from '../../shared/types';
-import { linkedItemUrl, isAdoRemote } from '../../shared/urls';
+import { FolderOpen, GitBranch, FolderGit2, Globe, GitPullRequest, Code2 } from 'lucide-react';
+import type {
+  Project,
+  Task,
+  RemoteControlState,
+  PullRequestInfo,
+  GitStatus,
+} from '../../shared/types';
+import { linkedItemUrl, isAdoRemote, branchUrl } from '../../shared/urls';
 import { Tooltip } from './ui/Tooltip';
 
 interface MainContentProps {
@@ -25,6 +31,7 @@ interface MainContentProps {
   onDeleteTask?: (id: string) => void;
   onArchiveTask?: (id: string) => void;
   onRestoreTask?: (id: string) => void;
+  gitStatus?: GitStatus | null;
 }
 
 export function MainContent({
@@ -46,18 +53,20 @@ export function MainContent({
   onDeleteTask,
   onArchiveTask,
   onRestoreTask,
+  gitStatus,
 }: MainContentProps) {
   const [prInfo, setPrInfo] = useState<PullRequestInfo | null>(null);
 
   useEffect(() => {
     setPrInfo(null);
 
-    if (!activeTask?.branch || !activeProject) {
+    const liveBranch = gitStatus?.branch;
+    const defaultBranch = activeProject?.baseRef || activeProject?.gitBranch || 'main';
+    if (!liveBranch || !activeProject || liveBranch === defaultBranch) {
       return;
     }
 
     let cancelled = false;
-    const branch = activeTask.branch;
     const remote = activeProject.gitRemote;
 
     (async () => {
@@ -65,11 +74,15 @@ export function MainContent({
         let pr: PullRequestInfo | null = null;
 
         if (remote && isAdoRemote(remote)) {
-          const resp = await window.electronAPI.adoGetPrForBranch(branch, remote, activeProject.id);
+          const resp = await window.electronAPI.adoGetPrForBranch(
+            liveBranch,
+            remote,
+            activeProject.id,
+          );
           if (!cancelled && resp.success) pr = resp.data ?? null;
         } else {
-          const cwd = activeTask.path || activeProject.path;
-          const resp = await window.electronAPI.githubGetPrForBranch(cwd, branch);
+          const cwd = activeTask?.path || activeProject.path;
+          const resp = await window.electronAPI.githubGetPrForBranch(cwd, liveBranch);
           if (!cancelled && resp.success) pr = resp.data ?? null;
         }
 
@@ -82,7 +95,7 @@ export function MainContent({
     return () => {
       cancelled = true;
     };
-  }, [activeTask?.id, activeTask?.branch, activeProject?.id, activeProject?.gitRemote]);
+  }, [activeTask?.id, activeProject?.id, activeProject?.gitRemote, gitStatus?.branch]);
 
   if (!activeProject) {
     return (
@@ -116,6 +129,27 @@ export function MainContent({
       />
     );
   }
+
+  const currentBranch = gitStatus?.branch || activeTask?.branch;
+  const currentBranchUrl =
+    currentBranch && activeProject?.gitRemote && gitStatus?.hasUpstream
+      ? branchUrl(activeProject.gitRemote, currentBranch)
+      : null;
+
+  const branchTooltip = gitStatus?.hasUpstream ? 'Branch' : 'Branch (no upstream detected)';
+
+  const branchLabel = currentBranchUrl ? (
+    <a
+      href={currentBranchUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-[11px] font-mono hover:underline truncate"
+    >
+      {currentBranch}
+    </a>
+  ) : (
+    <span className="text-[11px] font-mono truncate">{currentBranch}</span>
+  );
 
   const taskHeader = (
     <div
@@ -162,20 +196,30 @@ export function MainContent({
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-1.5 text-foreground/60 flex-shrink-0">
-            <GitBranch size={11} strokeWidth={2} />
-            <span className="text-[11px] font-mono">{activeTask.branch}</span>
-          </div>
+          {activeTask.useWorktree && (
+            <Tooltip content="Worktree">
+              <div className="flex items-center gap-1.5 text-foreground/60 min-w-0 flex-shrink max-w-[180px]">
+                <FolderGit2 size={11} strokeWidth={2} className="flex-shrink-0" />
+                <span className="text-[11px] font-mono truncate">
+                  {activeTask.path.split('/').pop()}
+                </span>
+              </div>
+            </Tooltip>
+          )}
+          <Tooltip content={branchTooltip}>
+            <div className="flex items-center gap-1.5 text-foreground/60 min-w-0 flex-shrink max-w-[180px]">
+              <GitBranch size={11} strokeWidth={2} className="flex-shrink-0" />
+              {branchLabel}
+            </div>
+          </Tooltip>
         </>
       ) : (
         <>
-          <div className="flex items-center gap-2">
-            <div className="w-[7px] h-[7px] rounded-full bg-[hsl(var(--git-added))] status-pulse" />
-            <span className="text-[13px] font-medium text-foreground">{activeTask.name}</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-foreground/60">
-            <GitBranch size={11} strokeWidth={2} />
-            <span className="text-[11px] font-mono">{activeTask.branch}</span>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="w-[7px] h-[7px] rounded-full bg-[hsl(var(--git-added))] status-pulse flex-shrink-0" />
+            <span className="text-[13px] font-medium text-foreground whitespace-nowrap">
+              {activeTask.name}
+            </span>
           </div>
           {activeTask.linkedItems && activeTask.linkedItems.length > 0 ? (
             <div className="flex items-center gap-1">
@@ -210,6 +254,22 @@ export function MainContent({
             </div>
           ) : null}
           <div className="ml-auto flex items-center gap-1.5">
+            {activeTask.useWorktree && (
+              <Tooltip content="Worktree">
+                <div className="flex items-center gap-1.5 text-foreground/60 min-w-0 flex-shrink max-w-[180px]">
+                  <FolderGit2 size={11} strokeWidth={2} className="flex-shrink-0" />
+                  <span className="text-[11px] font-mono truncate">
+                    {activeTask.path.split('/').pop()}
+                  </span>
+                </div>
+              </Tooltip>
+            )}
+            <Tooltip content={branchTooltip}>
+              <div className="flex items-center gap-1.5 text-foreground/60 min-w-0 flex-shrink max-w-[180px]">
+                <GitBranch size={11} strokeWidth={2} className="flex-shrink-0" />
+                {branchLabel}
+              </div>
+            </Tooltip>
             {taskActivity[activeTask.id] && (
               <Tooltip content="Remote control">
                 <button
@@ -217,7 +277,7 @@ export function MainContent({
                   className={`p-1 rounded-md transition-colors ${
                     remoteControlStates[activeTask.id]
                       ? 'text-primary hover:bg-primary/10'
-                      : 'text-muted-foreground/50 hover:text-foreground hover:bg-accent/60'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-accent/60'
                   }`}
                 >
                   <Globe size={14} strokeWidth={1.8} />
@@ -231,7 +291,7 @@ export function MainContent({
                   const ide = stored === 'cursor' || stored === 'code' ? stored : undefined;
                   window.electronAPI.openInIDE({ folderPath: activeTask.path, ide });
                 }}
-                className="p-1 rounded-md transition-colors text-muted-foreground/50 hover:text-foreground hover:bg-accent/60"
+                className="p-1 rounded-md transition-colors text-muted-foreground hover:text-foreground hover:bg-accent/60"
               >
                 <Code2 size={14} strokeWidth={1.8} />
               </button>
