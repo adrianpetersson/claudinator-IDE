@@ -244,6 +244,10 @@ export function App() {
     // Track PTYs that have been idle at least once, so we skip the initial
     // busy→idle transition that fires when a direct-spawn PTY first registers.
     const hasBeenIdle = new Set<string>();
+    // Track when each PTY entered busy state, so we can ignore brief flashes
+    // (e.g. startup child processes) that shouldn't trigger "done" notifications.
+    const busySince: Record<string, number> = {};
+    const MIN_BUSY_DURATION_MS = 3000;
 
     const unsubscribe = window.electronAPI.onPtyActivity((newActivity) => {
       // Peon mode: detect idle→busy transitions (user submits query)
@@ -257,10 +261,23 @@ export function App() {
       }
       // Detect any busy→idle transition (only for PTYs that completed a full work cycle)
       // Skip transitions from 'waiting' — those are not task completions
+      // Skip brief busy flashes (< 3s) — these are startup artifacts, not real work
       const newlyDoneIds: string[] = [];
       for (const [id, state] of Object.entries(newActivity)) {
         if (prevActivity[id] === 'busy' && state === 'idle' && hasBeenIdle.has(id)) {
-          newlyDoneIds.push(id);
+          const elapsed = Date.now() - (busySince[id] ?? Date.now());
+          if (elapsed >= MIN_BUSY_DURATION_MS) {
+            newlyDoneIds.push(id);
+          }
+        }
+      }
+
+      // Track busy start times (after detection, so busySince is still available above)
+      for (const [id, state] of Object.entries(newActivity)) {
+        if (state === 'busy' && prevActivity[id] !== 'busy') {
+          busySince[id] = Date.now();
+        } else if (state !== 'busy') {
+          delete busySince[id];
         }
       }
       if (newlyDoneIds.length > 0) {
