@@ -157,10 +157,12 @@ class ActivityMonitorImpl {
           activity.lastChildSeenTime = Date.now();
         }
 
-        // Self-heal: if children are detected while idle or waiting,
-        // Claude started working (e.g. permission was approved, or
-        // a false-idle from the hard timeout is corrected).
-        if (activity.state !== 'busy' && hasChildren) {
+        // Self-heal: if children are detected while waiting for permission,
+        // the user approved and Claude started a tool. Transition to busy.
+        // Note: we intentionally don't self-heal idle → busy here because
+        // Claude CLI briefly spawns children during startup, which would
+        // cause a false busy flash on every reopen.
+        if (activity.state === 'waiting' && hasChildren) {
           activity.state = 'busy';
           changed = true;
         }
