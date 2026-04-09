@@ -10,6 +10,7 @@ class HookServerImpl {
   private server: http.Server | null = null;
   private _port: number = 0;
   private _desktopNotificationEnabled = false;
+  private _hasPty: (id: string) => boolean = () => true;
 
   get port(): number {
     return this._port;
@@ -17,6 +18,10 @@ class HookServerImpl {
 
   setDesktopNotification(opts: { enabled: boolean }): void {
     this._desktopNotificationEnabled = opts.enabled;
+  }
+
+  setPtyValidator(fn: (id: string) => boolean): void {
+    this._hasPty = fn;
   }
 
   private showDesktopNotification(ptyId: string, body?: string): void {
@@ -130,6 +135,12 @@ class HookServerImpl {
         if (!ptyId) {
           res.writeHead(400);
           res.end('missing ptyId');
+          return;
+        }
+
+        if (!this._hasPty(ptyId)) {
+          res.writeHead(404);
+          res.end();
           return;
         }
 

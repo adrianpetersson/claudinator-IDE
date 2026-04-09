@@ -22,7 +22,7 @@ import { linkedItemUrl, isAdoRemote, branchUrl } from '../../shared/urls';
 import { Tooltip } from './ui/Tooltip';
 
 import { formatTokens } from '../../shared/format';
-import { usageColor, usageTextColor } from './ui/UsageBar';
+import { UsageBarInline, usageTextColor } from './ui/UsageBar';
 
 interface MainContentProps {
   activeTask: Task | null;
@@ -282,12 +282,7 @@ export function MainContent({
                 className="flex items-center gap-1.5"
                 title={`Context: ${activeCtx.used.toLocaleString()} / ${activeCtx.total.toLocaleString()} tokens (${Math.round(activeCtx.percentage)}%)`}
               >
-                <div className="w-[48px] h-[4px] rounded-full bg-border/40 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${usageColor(activeCtx.percentage)}`}
-                    style={{ width: `${Math.min(activeCtx.percentage, 100)}%` }}
-                  />
-                </div>
+                <UsageBarInline percentage={activeCtx.percentage} />
                 <span
                   className={`text-[10px] tabular-nums ${
                     activeCtx.percentage >= 80

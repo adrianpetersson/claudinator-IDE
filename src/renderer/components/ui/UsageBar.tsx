@@ -22,6 +22,35 @@ interface UsageBarProps {
   detailClassName?: string;
 }
 
+/** Compact bar-only variant for inline use (no label row). */
+export function UsageBarInline({
+  percentage,
+  height = 4,
+  width = '48px',
+  className = '',
+  title,
+}: {
+  percentage: number;
+  height?: number;
+  width?: string;
+  className?: string;
+  title?: string;
+}) {
+  const pct = Math.min(percentage, 100);
+  return (
+    <div
+      className={`rounded-full bg-border/40 overflow-hidden ${className}`}
+      style={{ width, height: `${height}px` }}
+      title={title}
+    >
+      <div
+        className={`h-full rounded-full transition-all duration-500 ${usageColor(pct)}`}
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  );
+}
+
 export function UsageBar({
   label,
   percentage,

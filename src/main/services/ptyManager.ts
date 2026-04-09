@@ -42,6 +42,10 @@ export function setDesktopNotification(opts: { enabled: boolean }): void {
   hookServer.setDesktopNotification(opts);
 }
 
+export function hasPty(id: string): boolean {
+  return ptys.has(id);
+}
+
 // Lazy-load node-pty to avoid native binding issues at startup
 let ptyModule: typeof import('node-pty') | null = null;
 let ptyLoadError: string | null = null;

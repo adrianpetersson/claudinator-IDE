@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { usageColor, usageTextColor } from './ui/UsageBar';
+import { UsageBarInline, usageTextColor } from './ui/UsageBar';
 import {
   FolderOpen,
   Plus,
@@ -517,15 +517,13 @@ export function LeftSidebar({
 
                             {/* Context usage bar */}
                             {ctx && ctx.percentage > 0 && (
-                              <div
-                                className="ml-[14px] mt-1 h-[2px] rounded-full bg-border/40 overflow-hidden"
+                              <UsageBarInline
+                                percentage={ctx.percentage}
+                                height={2}
+                                width="auto"
+                                className="ml-[14px] mt-1"
                                 title={`Context: ${ctx.used.toLocaleString()} / ${ctx.total.toLocaleString()} tokens (${Math.round(ctx.percentage)}%)`}
-                              >
-                                <div
-                                  className={`h-full rounded-full transition-all duration-500 ${usageColor(ctx.percentage)}`}
-                                  style={{ width: `${Math.min(ctx.percentage, 100)}%` }}
-                                />
-                              </div>
+                              />
                             )}
                           </div>
                         );

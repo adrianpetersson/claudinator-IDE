@@ -81,6 +81,8 @@ app.whenReady().then(async () => {
 
   // Start hook server (must be ready before any PTY spawns)
   const { hookServer } = await import('./services/HookServer');
+  const { hasPty } = await import('./services/ptyManager');
+  hookServer.setPtyValidator(hasPty);
   await hookServer.start();
 
   // Register IPC handlers
