@@ -753,7 +753,7 @@ function ClaudeCodeTab({
 
   function addEntry() {
     const key = newKey.trim();
-    if (!key || !/^[A-Z_][A-Z0-9_]*$/.test(key)) return;
+    if (!key || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) return;
     onCustomEnvVarsChange({ ...customEnvVars, [key]: newValue });
     setNewKey('');
     setNewValue('');
@@ -879,7 +879,7 @@ function ClaudeCodeTab({
             <input
               type="text"
               value={newKey}
-              onChange={(e) => setNewKey(e.target.value.toUpperCase())}
+              onChange={(e) => setNewKey(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') addEntry();
               }}

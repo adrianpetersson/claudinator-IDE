@@ -6,10 +6,14 @@ import { contextUsageService } from './ContextUsageService';
 import { getDb } from '../db/client';
 import { tasks } from '../db/schema';
 
+/** Maximum JSON body size for hook payloads (64KB). */
+const MAX_HOOK_BODY_BYTES = 65_536;
+
 class HookServerImpl {
   private server: http.Server | null = null;
   private _port: number = 0;
   private _desktopNotificationEnabled = false;
+  // Permissive default until setPtyValidator is called during boot
   private _hasPty: (id: string) => boolean = () => true;
 
   get port(): number {
@@ -95,6 +99,7 @@ class HookServerImpl {
       }
     });
     req.on('end', () => {
+      if (res.headersSent) return;
       if (overflow) {
         res.writeHead(413);
         res.end('payload too large');
@@ -128,144 +133,159 @@ class HookServerImpl {
     if (this.server) return this._port;
 
     return new Promise((resolve, reject) => {
-      this.server = http.createServer(async (req, res) => {
-        const url = new URL(req.url || '', `http://127.0.0.1:${this._port}`);
-        const ptyId = url.searchParams.get('ptyId');
-
-        if (!ptyId) {
-          res.writeHead(400);
-          res.end('missing ptyId');
-          return;
-        }
-
-        if (!this._hasPty(ptyId)) {
-          res.writeHead(404);
-          res.end();
-          return;
-        }
-
-        const pathname = url.pathname;
-
-        // All hooks are POST — drain the JSON body before responding.
-        // IMPORTANT: Response must have an empty body (not 'ok') to avoid
-        // injecting text into Claude's conversation context.
-
-        if (pathname === '/hook/stop') {
-          this.readJsonBody(req, res, 65_536, () => {
-            activityMonitor.setIdle(ptyId);
-            this.showDesktopNotification(ptyId);
-            res.writeHead(200);
+      this.server = http.createServer((req, res) => {
+        try {
+          if (req.method !== 'POST') {
+            res.writeHead(405);
             res.end();
-          });
-          return;
-        }
+            return;
+          }
 
-        if (pathname === '/hook/busy') {
-          this.readJsonBody(req, res, 65_536, () => {
-            activityMonitor.setBusy(ptyId);
-            res.writeHead(200);
+          const url = new URL(req.url || '', `http://127.0.0.1:${this._port}`);
+          const ptyId = url.searchParams.get('ptyId');
+
+          if (!ptyId) {
+            res.writeHead(400);
+            res.end('missing ptyId');
+            return;
+          }
+
+          if (!this._hasPty(ptyId)) {
+            res.writeHead(404);
             res.end();
-          });
-          return;
-        }
+            return;
+          }
 
-        if (pathname === '/hook/notification') {
-          this.readJsonBody(req, res, 65_536, (payload) => {
-            const notificationType =
-              typeof payload.notification_type === 'string' ? payload.notification_type : '';
-            const message = typeof payload.message === 'string' ? payload.message : undefined;
+          const pathname = url.pathname;
 
-            if (notificationType === 'permission_prompt') {
-              activityMonitor.setWaitingForPermission(ptyId);
-              const taskName = this.getTaskName(ptyId);
-              const notifBody = message
-                ? `${taskName}: ${message}`
-                : `${taskName} needs permission`;
-              this.showDesktopNotification(ptyId, notifBody);
-            } else if (notificationType === 'idle_prompt') {
+          // Hooks are POST — drain the JSON body before responding.
+          // IMPORTANT: Response must have an empty body (not 'ok') to avoid
+          // injecting text into Claude's conversation context.
+
+          if (pathname === '/hook/stop') {
+            this.readJsonBody(req, res, MAX_HOOK_BODY_BYTES, () => {
               activityMonitor.setIdle(ptyId);
               this.showDesktopNotification(ptyId);
-            }
+              res.writeHead(200);
+              res.end();
+            });
+            return;
+          }
 
-            res.writeHead(200);
+          if (pathname === '/hook/busy') {
+            this.readJsonBody(req, res, MAX_HOOK_BODY_BYTES, () => {
+              activityMonitor.setBusy(ptyId);
+              res.writeHead(200);
+              res.end();
+            });
+            return;
+          }
+
+          if (pathname === '/hook/notification') {
+            this.readJsonBody(req, res, MAX_HOOK_BODY_BYTES, (payload) => {
+              const notificationType =
+                typeof payload.notification_type === 'string' ? payload.notification_type : '';
+              const message = typeof payload.message === 'string' ? payload.message : undefined;
+
+              if (notificationType === 'permission_prompt') {
+                activityMonitor.setWaitingForPermission(ptyId);
+                const taskName = this.getTaskName(ptyId);
+                const notifBody = message
+                  ? `${taskName}: ${message}`
+                  : `${taskName} needs permission`;
+                this.showDesktopNotification(ptyId, notifBody);
+              } else if (notificationType === 'idle_prompt') {
+                activityMonitor.setIdle(ptyId);
+                this.showDesktopNotification(ptyId);
+              }
+
+              res.writeHead(200);
+              res.end();
+            });
+            return;
+          }
+
+          // StatusLine data (context usage) — uses type:"command" + curl, not type:"http"
+          if (pathname === '/hook/context') {
+            this.readJsonBody(req, res, MAX_HOOK_BODY_BYTES, (data) => {
+              contextUsageService.updateFromStatusLine(ptyId, data);
+              activityMonitor.noteStatusLine(ptyId);
+              res.writeHead(200);
+              res.end();
+            });
+            return;
+          }
+
+          if (pathname === '/hook/tool-start') {
+            this.readJsonBody(req, res, MAX_HOOK_BODY_BYTES, (payload) => {
+              const toolName =
+                typeof payload.tool_name === 'string' ? payload.tool_name : 'unknown';
+              const toolInput =
+                payload.tool_input && typeof payload.tool_input === 'object'
+                  ? (payload.tool_input as Record<string, unknown>)
+                  : undefined;
+              activityMonitor.setToolStart(ptyId, toolName, toolInput);
+              res.writeHead(200);
+              res.end();
+            });
+            return;
+          }
+
+          if (pathname === '/hook/tool-end') {
+            this.readJsonBody(req, res, MAX_HOOK_BODY_BYTES, () => {
+              activityMonitor.setToolEnd(ptyId);
+              res.writeHead(200);
+              res.end();
+            });
+            return;
+          }
+
+          if (pathname === '/hook/stop-failure') {
+            this.readJsonBody(req, res, MAX_HOOK_BODY_BYTES, (payload) => {
+              const errorType =
+                typeof payload.error_type === 'string' ? payload.error_type : 'unknown';
+              const message = typeof payload.error === 'string' ? payload.error : undefined;
+              console.error(`[HookServer] StopFailure for ptyId=${ptyId} type=${errorType}`);
+              activityMonitor.setError(ptyId, errorType, message);
+
+              if (errorType === 'rate_limit') {
+                const taskName = this.getTaskName(ptyId);
+                this.showDesktopNotification(ptyId, `${taskName} hit rate limit`);
+              }
+
+              res.writeHead(200);
+              res.end();
+            });
+            return;
+          }
+
+          if (pathname === '/hook/compact-start') {
+            this.readJsonBody(req, res, MAX_HOOK_BODY_BYTES, () => {
+              activityMonitor.setCompacting(ptyId, true);
+              res.writeHead(200);
+              res.end();
+            });
+            return;
+          }
+
+          if (pathname === '/hook/compact-end') {
+            this.readJsonBody(req, res, MAX_HOOK_BODY_BYTES, () => {
+              activityMonitor.setCompacting(ptyId, false);
+              res.writeHead(200);
+              res.end();
+            });
+            return;
+          }
+
+          res.writeHead(404);
+          res.end();
+        } catch (err) {
+          console.error('[HookServer] Request handler error:', err);
+          if (!res.headersSent) {
+            res.writeHead(500);
             res.end();
-          });
-          return;
+          }
         }
-
-        // StatusLine data (context usage) — uses type:"command" + curl, not type:"http"
-        if (pathname === '/hook/context') {
-          this.readJsonBody(req, res, 65_536, (data) => {
-            contextUsageService.updateFromStatusLine(ptyId, data);
-            activityMonitor.noteStatusLine(ptyId);
-            res.writeHead(200);
-            res.end();
-          });
-          return;
-        }
-
-        if (pathname === '/hook/tool-start') {
-          this.readJsonBody(req, res, 65_536, (payload) => {
-            const toolName = typeof payload.tool_name === 'string' ? payload.tool_name : 'unknown';
-            const toolInput =
-              payload.tool_input && typeof payload.tool_input === 'object'
-                ? (payload.tool_input as Record<string, unknown>)
-                : undefined;
-            activityMonitor.setToolStart(ptyId, toolName, toolInput);
-            res.writeHead(200);
-            res.end();
-          });
-          return;
-        }
-
-        if (pathname === '/hook/tool-end') {
-          this.readJsonBody(req, res, 65_536, () => {
-            activityMonitor.setToolEnd(ptyId);
-            res.writeHead(200);
-            res.end();
-          });
-          return;
-        }
-
-        if (pathname === '/hook/stop-failure') {
-          this.readJsonBody(req, res, 65_536, (payload) => {
-            const errorType =
-              typeof payload.error_type === 'string' ? payload.error_type : 'unknown';
-            const message = typeof payload.error === 'string' ? payload.error : undefined;
-            console.error(`[HookServer] StopFailure for ptyId=${ptyId} type=${errorType}`);
-            activityMonitor.setError(ptyId, errorType, message);
-
-            if (errorType === 'rate_limit') {
-              const taskName = this.getTaskName(ptyId);
-              this.showDesktopNotification(ptyId, `${taskName} hit rate limit`);
-            }
-
-            res.writeHead(200);
-            res.end();
-          });
-          return;
-        }
-
-        if (pathname === '/hook/compact-start') {
-          this.readJsonBody(req, res, 65_536, () => {
-            activityMonitor.setCompacting(ptyId, true);
-            res.writeHead(200);
-            res.end();
-          });
-          return;
-        }
-
-        if (pathname === '/hook/compact-end') {
-          this.readJsonBody(req, res, 65_536, () => {
-            activityMonitor.setCompacting(ptyId, false);
-            res.writeHead(200);
-            res.end();
-          });
-          return;
-        }
-
-        res.writeHead(404);
-        res.end();
       });
 
       this.server.listen(0, '127.0.0.1', () => {

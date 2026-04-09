@@ -119,6 +119,8 @@ export interface TerminalSnapshot {
 export interface ContextUsage {
   used: number;
   total: number;
+  /** Always equals Math.min(100, Math.max(0, total > 0 ? (used / total) * 100 : 0)).
+   *  Pre-computed for rendering convenience; derived from used/total at creation time. */
   percentage: number;
 }
 
@@ -132,7 +134,8 @@ export interface SessionCost {
 
 export interface RateLimitInfo {
   usedPercentage: number;
-  resetsAt: number; // epoch seconds
+  /** When this rate limit window resets. Epoch seconds (NOT milliseconds). */
+  resetsAt: number;
 }
 
 export interface RateLimits {
@@ -149,8 +152,11 @@ export interface StatusLineData {
 }
 
 export interface UsageThresholds {
-  contextPercentage: number | null; // e.g. 80 = warn at 80%
+  /** Warn when context window usage exceeds this percentage (0-100), or null to disable. */
+  contextPercentage: number | null;
+  /** Warn when 5-hour rate limit usage exceeds this percentage (0-100), or null to disable. */
   fiveHourPercentage: number | null;
+  /** Warn when 7-day rate limit usage exceeds this percentage (0-100), or null to disable. */
   sevenDayPercentage: number | null;
 }
 

@@ -243,6 +243,14 @@ app.on('before-quit', async () => {
     // Best effort
   }
 
+  // Stop context usage service (clears debounce timer)
+  try {
+    const { contextUsageService } = await import('./services/ContextUsageService');
+    contextUsageService.stop();
+  } catch {
+    // Best effort
+  }
+
   // Stop all file watchers
   try {
     const { stopAll } = await import('./services/FileWatcherService');

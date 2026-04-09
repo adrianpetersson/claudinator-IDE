@@ -32,6 +32,7 @@ function RotationSection({
   rotationTasks,
   activeTaskId,
   taskActivity,
+  unseenTaskIds,
   projects,
   onSelectTask,
   onRemoveFromRotation,
@@ -39,6 +40,7 @@ function RotationSection({
   rotationTasks: Task[];
   activeTaskId: string | null;
   taskActivity: Record<string, ActivityInfo>;
+  unseenTaskIds?: Set<string>;
   projects: Project[];
   onSelectTask: (projectId: string, taskId: string) => void;
   onRemoveFromRotation?: (taskId: string) => void;
@@ -113,10 +115,14 @@ function RotationSection({
               onClick={() => onSelectTask(task.projectId, task.id)}
             >
               {/* Status indicator */}
-              {activity === 'waiting' ? (
+              {activity === 'error' ? (
+                <div className="w-[6px] h-[6px] rounded-full bg-destructive flex-shrink-0" />
+              ) : activity === 'waiting' ? (
                 <div className="w-[6px] h-[6px] rounded-full bg-orange-500 flex-shrink-0" />
               ) : activity === 'busy' ? (
                 <div className="w-[6px] h-[6px] rounded-full bg-amber-400 status-pulse flex-shrink-0" />
+              ) : activity === 'idle' && unseenTaskIds?.has(task.id) ? (
+                <div className="w-[6px] h-[6px] rounded-full bg-blue-400 flex-shrink-0" />
               ) : activity === 'idle' ? (
                 <div className="w-[6px] h-[6px] rounded-full bg-emerald-400 flex-shrink-0" />
               ) : null}
@@ -392,6 +398,7 @@ export function LeftSidebar({
           rotationTasks={rotationTasks}
           activeTaskId={activeTaskId}
           taskActivity={taskActivity}
+          unseenTaskIds={unseenTaskIds}
           projects={projects}
           onSelectTask={onSelectTask}
           onRemoveFromRotation={onRemoveFromRotation}

@@ -190,7 +190,8 @@ export function App() {
             fiveHourPercentage: null,
             sevenDayPercentage: null,
           };
-    } catch {
+    } catch (err) {
+      console.warn('Failed to parse usageThresholds from localStorage, resetting:', err);
       return {
         contextPercentage: 80,
         fiveHourPercentage: null,
@@ -246,7 +247,8 @@ export function App() {
     try {
       const stored = localStorage.getItem('rotationExclusions');
       return stored ? new Set(JSON.parse(stored)) : new Set();
-    } catch {
+    } catch (err) {
+      console.warn('Failed to parse rotationExclusions from localStorage:', err);
       return new Set();
     }
   });

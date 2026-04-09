@@ -64,8 +64,7 @@ const IDLE_SETTLE_MS = 2000;
 const STARTUP_GRACE_MS = 15_000;
 
 /** Build a human-readable label from a PreToolUse hook payload. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildToolLabel(toolName: string, toolInput: Record<string, any> | undefined): string {
+function buildToolLabel(toolName: string, toolInput: Record<string, unknown> | undefined): string {
   if (!toolInput) return toolName;
 
   switch (toolName) {
@@ -80,8 +79,8 @@ function buildToolLabel(toolName: string, toolInput: Record<string, any> | undef
     case 'Edit':
     case 'Write':
     case 'Read': {
-      const fp: string | undefined = toolInput.file_path;
-      if (fp) {
+      const fp = toolInput.file_path;
+      if (typeof fp === 'string') {
         const parts = fp.split('/');
         const filename = parts[parts.length - 1];
         const verb = toolName === 'Read' ? 'Reading' : toolName === 'Edit' ? 'Editing' : 'Writing';
@@ -90,15 +89,21 @@ function buildToolLabel(toolName: string, toolInput: Record<string, any> | undef
       return toolName;
     }
     case 'Grep':
-      return toolInput.pattern ? `Searching for "${toolInput.pattern}"` : 'Searching code';
+      return typeof toolInput.pattern === 'string'
+        ? `Searching for "${toolInput.pattern}"`
+        : 'Searching code';
     case 'Glob':
-      return toolInput.pattern ? `Finding ${toolInput.pattern}` : 'Finding files';
+      return typeof toolInput.pattern === 'string'
+        ? `Finding ${toolInput.pattern}`
+        : 'Finding files';
     case 'Agent':
-      return toolInput.description || 'Running agent';
+      return typeof toolInput.description === 'string' ? toolInput.description : 'Running agent';
     case 'WebFetch':
       return 'Fetching web content';
     case 'WebSearch':
-      return toolInput.query ? `Searching "${toolInput.query}"` : 'Searching web';
+      return typeof toolInput.query === 'string'
+        ? `Searching "${toolInput.query}"`
+        : 'Searching web';
     default:
       // MCP tools: mcp__server__tool → "server: tool"
       if (toolName.startsWith('mcp__')) {
@@ -217,8 +222,7 @@ class ActivityMonitorImpl {
    * Record that a tool started executing (PreToolUse hook).
    * Sets the current tool info and ensures the PTY is in busy state.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  setToolStart(ptyId: string, toolName: string, toolInput?: Record<string, any>): void {
+  setToolStart(ptyId: string, toolName: string, toolInput?: Record<string, unknown>): void {
     const activity = this.activities.get(ptyId);
     if (!activity) return;
 
@@ -390,7 +394,11 @@ class ActivityMonitorImpl {
         // During extended thinking, Claude has no child processes but the
         // spinner still emits PTY data — so we check lastPtyOutputTime too
         // (not lastDataTime, which statusLine POSTs also refresh).
-        if (activity.state === 'busy' || activity.state === 'waiting') {
+        if (
+          activity.state === 'busy' ||
+          activity.state === 'waiting' ||
+          activity.state === 'error'
+        ) {
           const now = Date.now();
           const childlessTimeout =
             !hasChildren &&

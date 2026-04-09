@@ -28,7 +28,7 @@ function findClaudeProjectDir(cwd: string): string | null {
     const parts = cwd.split('/').filter((p) => p.length > 0);
     const suffix = parts.slice(-3).join('-');
     const dirs = fs.readdirSync(projectsDir);
-    const match = dirs.find((d) => d.includes(suffix));
+    const match = dirs.find((d) => d.endsWith(suffix));
     if (match) return path.join(projectsDir, match);
 
     return null;
@@ -221,15 +221,15 @@ function buildDirectEnv(isDark: boolean): Record<string, string> {
     }
   }
 
-  // Merge user-configured Claude Code env vars (curated toggles + custom vars from settings),
-  // but prevent overriding internal keys that would break spawned processes.
+  // Merge user-configured environment variables from settings,
+  // preventing overrides of internal keys that would break spawned processes.
   for (const [key, value] of Object.entries(claudeEnvVars)) {
     if (!RESERVED_ENV_KEYS.has(key)) {
       env[key] = value;
     }
   }
 
-  // Always enable fullscreen rendering (NO_FLICKER) — Dash handles its own viewport
+  // Disable Claude Code's built-in viewport scrolling — Dash uses its own terminal viewport
   env.CLAUDE_CODE_NO_FLICKER = '1';
 
   return env;
@@ -321,11 +321,12 @@ function writeHookSettings(cwd: string, ptyId: string): void {
     // Use base64 encoding to safely embed user-controlled content in a shell command.
     // Single-quote escaping is fragile with content from GitHub issues / ADO work items.
     const b64 = Buffer.from(hookPayload).toString('base64');
+    const decodeFlag = process.platform === 'darwin' ? '-D' : '-d';
     const sessionStartHook = {
       hooks: [
         {
           type: 'command',
-          command: `echo '${b64}' | base64 -d`,
+          command: `echo '${b64}' | base64 ${decodeFlag}`,
         },
       ],
     };
@@ -791,6 +792,7 @@ export function killByOwner(owner: WebContents): void {
       ptys.delete(id);
       activityMonitor.unregister(id);
       remoteControlService.unregister(id);
+      contextUsageService.unregister(id);
       try {
         record.proc.kill();
       } catch {
