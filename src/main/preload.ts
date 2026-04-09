@@ -63,8 +63,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Activity monitor
   ptyGetAllActivity: () => ipcRenderer.invoke('pty:activity:getAll'),
-  onPtyActivity: (callback: (data: Record<string, 'busy' | 'idle' | 'waiting'>) => void) => {
-    const handler = (_event: unknown, data: Record<string, 'busy' | 'idle' | 'waiting'>) =>
+  onPtyActivity: (
+    callback: (data: Record<string, import('@shared/types').ActivityInfo>) => void,
+  ) => {
+    const handler = (_event: unknown, data: Record<string, import('@shared/types').ActivityInfo>) =>
       callback(data);
     ipcRenderer.on('pty:activity', handler);
     return () => {

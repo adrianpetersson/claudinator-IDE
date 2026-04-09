@@ -15,7 +15,13 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react';
-import type { Project, Task, RemoteControlState, ContextUsage } from '../../shared/types';
+import type {
+  Project,
+  Task,
+  RemoteControlState,
+  ContextUsage,
+  ActivityInfo,
+} from '../../shared/types';
 import { IconButton } from './ui/IconButton';
 import { Tooltip } from './ui/Tooltip';
 
@@ -38,7 +44,7 @@ interface LeftSidebarProps {
   onShowCommitGraph: (projectId: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
-  taskActivity: Record<string, 'busy' | 'idle' | 'waiting'>;
+  taskActivity: Record<string, ActivityInfo>;
   unseenTaskIds?: Set<string>;
   remoteControlStates?: Record<string, RemoteControlState>;
   contextUsage?: Record<string, ContextUsage>;
@@ -101,11 +107,12 @@ export function LeftSidebar({
     });
   }
 
-  function projectActivity(projectId: string): 'busy' | 'idle' | 'waiting' | null {
+  function projectActivity(projectId: string): 'busy' | 'idle' | 'waiting' | 'error' | null {
     const tasks = (tasksByProject[projectId] || []).filter((t) => !t.archivedAt);
-    if (tasks.some((t) => taskActivity[t.id] === 'waiting')) return 'waiting';
-    if (tasks.some((t) => taskActivity[t.id] === 'busy')) return 'busy';
-    if (tasks.some((t) => taskActivity[t.id] === 'idle')) return 'idle';
+    if (tasks.some((t) => taskActivity[t.id]?.state === 'error')) return 'error';
+    if (tasks.some((t) => taskActivity[t.id]?.state === 'waiting')) return 'waiting';
+    if (tasks.some((t) => taskActivity[t.id]?.state === 'busy')) return 'busy';
+    if (tasks.some((t) => taskActivity[t.id]?.state === 'idle')) return 'idle';
     return null;
   }
 
@@ -181,20 +188,24 @@ export function LeftSidebar({
                   {activity && (
                     <Tooltip
                       content={
-                        activity === 'waiting'
-                          ? 'Waiting for user'
-                          : activity === 'busy'
-                            ? 'Claude is working'
-                            : 'Idle'
+                        activity === 'error'
+                          ? 'Error'
+                          : activity === 'waiting'
+                            ? 'Waiting for user'
+                            : activity === 'busy'
+                              ? 'Claude is working'
+                              : 'Idle'
                       }
                     >
                       <div
                         className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border-2 border-[hsl(var(--surface-1))] ${
-                          activity === 'waiting'
-                            ? 'bg-orange-500'
-                            : activity === 'busy'
-                              ? 'bg-amber-400 status-pulse'
-                              : 'bg-emerald-400'
+                          activity === 'error'
+                            ? 'bg-destructive'
+                            : activity === 'waiting'
+                              ? 'bg-orange-500'
+                              : activity === 'busy'
+                                ? 'bg-amber-400 status-pulse'
+                                : 'bg-emerald-400'
                         }`}
                       />
                     </Tooltip>
@@ -392,9 +403,26 @@ export function LeftSidebar({
                   <div className="overflow-hidden">
                     <div className="ml-6 mr-1 mt-0.5 space-y-px">
                       {projectTasks.map((task) => {
-                        const activity = taskActivity[task.id];
+                        const activityInfo = taskActivity[task.id];
+                        const activityState = activityInfo?.state;
                         const isActiveTask = task.id === activeTaskId;
                         const ctx = contextUsage[task.id];
+
+                        // Build tooltip text with tool details when available
+                        const busyTooltip = activityInfo?.compacting
+                          ? 'Compacting context...'
+                          : activityInfo?.tool?.label
+                            ? activityInfo.tool.label
+                            : 'Claude is working';
+                        const errorTooltip = activityInfo?.error
+                          ? activityInfo.error.type === 'rate_limit'
+                            ? 'Rate limited'
+                            : activityInfo.error.type === 'auth_error'
+                              ? 'Authentication error'
+                              : activityInfo.error.type === 'billing_error'
+                                ? 'Billing error'
+                                : 'Error'
+                          : 'Error';
 
                         return (
                           <div
@@ -408,19 +436,23 @@ export function LeftSidebar({
                           >
                             <div className="flex items-center gap-2">
                               {/* Status indicator */}
-                              {activity === 'waiting' ? (
+                              {activityState === 'error' ? (
+                                <Tooltip content={errorTooltip}>
+                                  <div className="w-[6px] h-[6px] rounded-full bg-destructive flex-shrink-0" />
+                                </Tooltip>
+                              ) : activityState === 'waiting' ? (
                                 <Tooltip content="Waiting for user">
                                   <div className="w-[6px] h-[6px] rounded-full bg-orange-500 flex-shrink-0" />
                                 </Tooltip>
-                              ) : activity === 'busy' ? (
-                                <Tooltip content="Claude is working">
+                              ) : activityState === 'busy' ? (
+                                <Tooltip content={busyTooltip}>
                                   <div className="w-[6px] h-[6px] rounded-full bg-amber-400 status-pulse flex-shrink-0" />
                                 </Tooltip>
-                              ) : activity === 'idle' && unseenTaskIds?.has(task.id) ? (
+                              ) : activityState === 'idle' && unseenTaskIds?.has(task.id) ? (
                                 <Tooltip content="Done (unseen)">
                                   <div className="w-[6px] h-[6px] rounded-full bg-blue-400 flex-shrink-0" />
                                 </Tooltip>
-                              ) : activity === 'idle' ? (
+                              ) : activityState === 'idle' ? (
                                 <Tooltip content="Idle">
                                   <div className="w-[6px] h-[6px] rounded-full bg-emerald-400 flex-shrink-0" />
                                 </Tooltip>

@@ -163,6 +163,35 @@ export interface UsageThresholds {
   sevenDayPercentage: number | null;
 }
 
+// ── Activity Types ──────────────────────────────────────────
+
+export type ActivityState = 'busy' | 'idle' | 'waiting' | 'error';
+
+/** Human-readable label for the current tool, derived from PreToolUse hook data. */
+export interface ToolActivity {
+  /** Raw tool name from Claude Code (e.g. "Bash", "Edit", "Grep", "Agent"). */
+  toolName: string;
+  /** Short human-readable description (e.g. "Running tests...", "Editing src/main.ts..."). */
+  label: string;
+}
+
+/** Error info from StopFailure hook. */
+export interface ActivityError {
+  type: 'rate_limit' | 'auth_error' | 'billing_error' | 'unknown';
+  message?: string;
+}
+
+/** Rich activity info emitted to the renderer for each PTY. */
+export interface ActivityInfo {
+  state: ActivityState;
+  /** Current tool being executed (set by PreToolUse, cleared by PostToolUse/Stop). */
+  tool?: ToolActivity;
+  /** Error details when state is 'error'. */
+  error?: ActivityError;
+  /** True while Claude Code is compacting context. */
+  compacting?: boolean;
+}
+
 // ── Branch Types ─────────────────────────────────────────────
 
 export interface BranchInfo {

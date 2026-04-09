@@ -19,6 +19,7 @@ import type {
   PullRequestInfo,
   PixelAgentsConfig,
   PixelAgentsStatus,
+  ActivityInfo,
 } from '../shared/types';
 
 export interface ElectronAPI {
@@ -123,10 +124,8 @@ export interface ElectronAPI {
   ) => () => void;
 
   // Activity monitor
-  ptyGetAllActivity: () => Promise<IpcResponse<Record<string, 'busy' | 'idle' | 'waiting'>>>;
-  onPtyActivity: (
-    callback: (data: Record<string, 'busy' | 'idle' | 'waiting'>) => void,
-  ) => () => void;
+  ptyGetAllActivity: () => Promise<IpcResponse<Record<string, ActivityInfo>>>;
+  onPtyActivity: (callback: (data: Record<string, ActivityInfo>) => void) => () => void;
 
   // Remote control
   ptyRemoteControlEnable: (ptyId: string) => Promise<IpcResponse<void>>;

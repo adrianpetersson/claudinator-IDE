@@ -1,10 +1,9 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import type { WebContents } from 'electron';
+import type { ActivityState, ActivityInfo, ToolActivity, ActivityError } from '@shared/types';
 
 const execFileAsync = promisify(execFile);
-
-type ActivityState = 'busy' | 'idle' | 'waiting';
 
 interface PtyActivity {
   pid: number;
@@ -27,6 +26,15 @@ interface PtyActivity {
   /** Timestamp when setIdle was last called. Used by noteStatusLine to avoid
    *  transitioning back to busy from delayed/buffered statusLine POSTs. */
   lastIdleTime: number;
+  /** Current tool being executed (from PreToolUse hook). */
+  tool: ToolActivity | null;
+  /** Error info from StopFailure hook. */
+  error: ActivityError | null;
+  /** Whether context is being compacted. */
+  compacting: boolean;
+  /** Timestamp when this PTY was registered. Used to suppress idle→busy
+   *  self-heal during Claude CLI startup (initialization child processes). */
+  registeredAt: number;
 }
 
 const POLL_INTERVAL = 2000;
@@ -49,6 +57,58 @@ const IDLE_TO_BUSY_GRACE_MS = 4000;
  *  for cases where the UserPromptSubmit hook missed. */
 const IDLE_SETTLE_MS = 2000;
 
+/** How long (ms) after PTY registration before the idle→busy polling
+ *  self-heal is allowed. During Claude CLI startup, initialization child
+ *  processes (loading CLAUDE.md, indexing, etc.) would falsely trigger
+ *  the self-heal. After this window, hooks are the primary signal. */
+const STARTUP_GRACE_MS = 15_000;
+
+/** Build a human-readable label from a PreToolUse hook payload. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildToolLabel(toolName: string, toolInput: Record<string, any> | undefined): string {
+  if (!toolInput) return toolName;
+
+  switch (toolName) {
+    case 'Bash': {
+      const cmd = toolInput.description || toolInput.command;
+      if (typeof cmd === 'string') {
+        const short = cmd.length > 60 ? cmd.slice(0, 57) + '...' : cmd;
+        return short;
+      }
+      return 'Running command';
+    }
+    case 'Edit':
+    case 'Write':
+    case 'Read': {
+      const fp: string | undefined = toolInput.file_path;
+      if (fp) {
+        const parts = fp.split('/');
+        const filename = parts[parts.length - 1];
+        const verb = toolName === 'Read' ? 'Reading' : toolName === 'Edit' ? 'Editing' : 'Writing';
+        return `${verb} ${filename}`;
+      }
+      return toolName;
+    }
+    case 'Grep':
+      return toolInput.pattern ? `Searching for "${toolInput.pattern}"` : 'Searching code';
+    case 'Glob':
+      return toolInput.pattern ? `Finding ${toolInput.pattern}` : 'Finding files';
+    case 'Agent':
+      return toolInput.description || 'Running agent';
+    case 'WebFetch':
+      return 'Fetching web content';
+    case 'WebSearch':
+      return toolInput.query ? `Searching "${toolInput.query}"` : 'Searching web';
+    default:
+      // MCP tools: mcp__server__tool → "server: tool"
+      if (toolName.startsWith('mcp__')) {
+        const parts = toolName.split('__');
+        if (parts.length >= 3) return `${parts[1]}: ${parts.slice(2).join('__')}`;
+      }
+      return toolName;
+  }
+}
+
 class ActivityMonitorImpl {
   private activities = new Map<string, PtyActivity>();
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
@@ -66,6 +126,10 @@ class ActivityMonitorImpl {
       idleChildrenSince: 0,
       lastStatusLineTime: 0,
       lastIdleTime: now,
+      tool: null,
+      error: null,
+      compacting: false,
+      registeredAt: now,
     });
     this.emitAll();
   }
@@ -118,6 +182,8 @@ class ActivityMonitorImpl {
     activity.lastIdleTime = Date.now();
     activity.lastStatusLineTime = 0;
     activity.idleChildrenSince = 0;
+    activity.tool = null;
+    activity.compacting = false;
     this.emitAll();
   }
 
@@ -131,6 +197,7 @@ class ActivityMonitorImpl {
     activity.state = 'busy';
     activity.lastChildSeenTime = Date.now();
     activity.idleChildrenSince = 0;
+    activity.error = null; // Clear previous errors on new prompt
     this.emitAll();
   }
 
@@ -142,6 +209,82 @@ class ActivityMonitorImpl {
     const activity = this.activities.get(ptyId);
     if (!activity || activity.state === 'waiting') return;
     activity.state = 'waiting';
+    activity.tool = null;
+    this.emitAll();
+  }
+
+  /**
+   * Record that a tool started executing (PreToolUse hook).
+   * Sets the current tool info and ensures the PTY is in busy state.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  setToolStart(ptyId: string, toolName: string, toolInput?: Record<string, any>): void {
+    const activity = this.activities.get(ptyId);
+    if (!activity) return;
+
+    activity.tool = {
+      toolName,
+      label: buildToolLabel(toolName, toolInput),
+    };
+
+    // Ensure busy state (covers edge case where UserPromptSubmit was missed)
+    if (activity.state !== 'busy') {
+      activity.state = 'busy';
+      activity.idleChildrenSince = 0;
+      activity.error = null;
+    }
+
+    activity.lastDataTime = Date.now();
+    activity.lastChildSeenTime = Date.now();
+    this.emitAll();
+  }
+
+  /**
+   * Record that a tool finished executing (PostToolUse hook).
+   * Clears the current tool but keeps the PTY busy (Claude is between tools).
+   */
+  setToolEnd(ptyId: string): void {
+    const activity = this.activities.get(ptyId);
+    if (!activity) return;
+    activity.tool = null;
+    activity.lastDataTime = Date.now();
+    activity.lastChildSeenTime = Date.now();
+    this.emitAll();
+  }
+
+  /**
+   * Record a stop failure (StopFailure hook).
+   * Transitions to error state with details about the failure.
+   */
+  setError(ptyId: string, errorType: string, message?: string): void {
+    const activity = this.activities.get(ptyId);
+    if (!activity) return;
+
+    const mappedType: ActivityError['type'] =
+      errorType === 'rate_limit'
+        ? 'rate_limit'
+        : errorType === 'authentication_failed'
+          ? 'auth_error'
+          : errorType === 'billing_error'
+            ? 'billing_error'
+            : 'unknown';
+
+    activity.state = 'error';
+    activity.tool = null;
+    activity.error = { type: mappedType, message };
+    this.emitAll();
+  }
+
+  /**
+   * Set compacting state (PreCompact/PostCompact hooks).
+   */
+  setCompacting(ptyId: string, compacting: boolean): void {
+    const activity = this.activities.get(ptyId);
+    if (!activity) return;
+    activity.compacting = compacting;
+    if (compacting) {
+      activity.tool = null; // Clear tool during compaction
+    }
     this.emitAll();
   }
 
@@ -164,14 +307,18 @@ class ActivityMonitorImpl {
     this.sender = null;
   }
 
-  getAll(): Record<string, ActivityState> {
-    const result: Record<string, ActivityState> = {};
+  getAll(): Record<string, ActivityInfo> {
+    const result: Record<string, ActivityInfo> = {};
     for (const [id, activity] of this.activities) {
       // Only expose direct-spawn (Claude CLI) PTYs to the renderer.
       // Shell terminals cycle busy/idle on every command, which would
       // trigger notification sounds and misleading activity indicators.
       if (!activity.isDirectSpawn) continue;
-      result[id] = activity.state;
+      const info: ActivityInfo = { state: activity.state };
+      if (activity.tool) info.tool = activity.tool;
+      if (activity.error) info.error = activity.error;
+      if (activity.compacting) info.compacting = true;
+      result[id] = info;
     }
     return result;
   }
@@ -220,9 +367,10 @@ class ActivityMonitorImpl {
         // Delayed self-heal: idle → busy when children are continuously
         // present for IDLE_TO_BUSY_GRACE_MS. This recovers from missed
         // busy hooks and mid-response stop hooks (which fire between
-        // chained tool calls). The grace period filters out brief startup
-        // child processes that last < 1s.
-        if (activity.state === 'idle' && hasChildren) {
+        // chained tool calls). Suppressed during startup grace period
+        // to avoid false positives from Claude CLI initialization.
+        const pastStartup = Date.now() - activity.registeredAt > STARTUP_GRACE_MS;
+        if (activity.state === 'idle' && hasChildren && pastStartup) {
           if (activity.idleChildrenSince === 0) {
             activity.idleChildrenSince = Date.now();
           } else if (Date.now() - activity.idleChildrenSince > IDLE_TO_BUSY_GRACE_MS) {
@@ -250,6 +398,8 @@ class ActivityMonitorImpl {
             now - activity.lastPtyOutputTime > DIRECT_SPAWN_CHILDLESS_HARD_LIMIT_MS;
           if (childlessTimeout) {
             activity.state = 'idle';
+            activity.tool = null;
+            activity.compacting = false;
             changed = true;
           }
         }
@@ -261,6 +411,9 @@ class ActivityMonitorImpl {
 
       if (activity.state !== newState) {
         activity.state = newState;
+        if (!isWorking) {
+          activity.tool = null;
+        }
         changed = true;
       }
     }

@@ -30,7 +30,7 @@ interface MainContentProps {
   sidebarCollapsed?: boolean;
   tasks?: Task[];
   activeTaskId?: string | null;
-  taskActivity?: Record<string, 'busy' | 'idle' | 'waiting'>;
+  taskActivity?: Record<string, import('../../shared/types').ActivityInfo>;
   unseenTaskIds?: Set<string>;
   remoteControlStates?: Record<string, RemoteControlState>;
   contextUsage?: Record<string, ContextUsage>;
@@ -192,15 +192,17 @@ export function MainContent({
               >
                 <span
                   className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                    taskActivity[task.id] === 'waiting'
-                      ? 'bg-orange-500'
-                      : taskActivity[task.id] === 'busy'
-                        ? 'bg-amber-400 animate-pulse'
-                        : taskActivity[task.id] === 'idle' && unseenTaskIds?.has(task.id)
-                          ? 'bg-blue-400'
-                          : taskActivity[task.id] === 'idle'
-                            ? 'bg-green-400'
-                            : 'bg-muted-foreground/30'
+                    taskActivity[task.id]?.state === 'error'
+                      ? 'bg-destructive'
+                      : taskActivity[task.id]?.state === 'waiting'
+                        ? 'bg-orange-500'
+                        : taskActivity[task.id]?.state === 'busy'
+                          ? 'bg-amber-400 animate-pulse'
+                          : taskActivity[task.id]?.state === 'idle' && unseenTaskIds?.has(task.id)
+                            ? 'bg-blue-400'
+                            : taskActivity[task.id]?.state === 'idle'
+                              ? 'bg-green-400'
+                              : 'bg-muted-foreground/30'
                   }`}
                 />
                 <span className="truncate max-w-[140px]">{task.name}</span>

@@ -182,23 +182,28 @@ export function writeTaskContext(cwd: string, prompt: string, meta?: TaskContext
 }
 
 /**
- * Write .claude/settings.local.json with Stop, UserPromptSubmit, Notification,
- * and (optionally) SessionStart hooks.
+ * All hook event names that Dash writes to settings.local.json.
+ * Used by both writeHookSettings and cleanupHookSettings.
+ */
+const DASH_HOOK_EVENTS = [
+  'Stop',
+  'UserPromptSubmit',
+  'Notification',
+  'PreToolUse',
+  'PostToolUse',
+  'StopFailure',
+  'PreCompact',
+  'PostCompact',
+  'SessionStart',
+] as const;
+
+/**
+ * Write .claude/settings.local.json with hooks for activity monitoring,
+ * tool tracking, error detection, and context usage.
  *
- * Notification hooks fire when Claude Code sends notifications. Each entry can
- * include a `matcher` to filter by notification_type:
- *   - permission_prompt  — Claude needs the user to approve a tool use
- *   - idle_prompt        — Claude is idle / waiting for user input
- *   - auth_success       — authentication completed successfully
- *   - elicitation_dialog — Claude is presenting a dialog for user input
- * Omit the matcher to run the hook for all notification types.
- *
- * The hook receives JSON on stdin with these fields:
- *   session_id, transcript_path, cwd, permission_mode, hook_event_name,
- *   message (notification text), title (optional), notification_type.
- *
- * Notification hooks cannot block or modify notifications but may return
- * { additionalContext: string } to inject context into the conversation.
+ * Hooks use type: "http" — Claude Code POSTs the hook JSON body directly
+ * to our local HookServer. The statusLine uses type: "command" with curl
+ * (http type is not supported for statusLine).
  */
 function writeHookSettings(cwd: string, ptyId: string): void {
   const port = hookServer.port;
@@ -206,49 +211,36 @@ function writeHookSettings(cwd: string, ptyId: string): void {
 
   const claudeDir = path.join(cwd, '.claude');
   const settingsPath = path.join(claudeDir, 'settings.local.json');
-  const curlBase = `curl -s --connect-timeout 2 http://127.0.0.1:${port}`;
+  const base = `http://127.0.0.1:${port}`;
+
+  /** Shorthand: build an HTTP hook entry. */
+  const httpHook = (endpoint: string, async?: boolean) => ({
+    type: 'http' as const,
+    url: `${base}${endpoint}?ptyId=${ptyId}`,
+    ...(async ? { async: true } : {}),
+  });
 
   const hookSettings: Record<string, unknown[]> = {
-    Stop: [
-      {
-        hooks: [
-          {
-            type: 'command',
-            command: `${curlBase}/hook/stop?ptyId=${ptyId} || exit 0`,
-          },
-        ],
-      },
-    ],
-    UserPromptSubmit: [
-      {
-        hooks: [
-          {
-            type: 'command',
-            command: `${curlBase}/hook/busy?ptyId=${ptyId} || exit 0`,
-          },
-        ],
-      },
-    ],
+    // ── Activity state signals ──────────────────────────────
+    Stop: [{ hooks: [httpHook('/hook/stop')] }],
+    UserPromptSubmit: [{ hooks: [httpHook('/hook/busy')] }],
+
+    // ── Notification (permission prompt, idle) ──────────────
     Notification: [
-      {
-        matcher: 'permission_prompt',
-        hooks: [
-          {
-            type: 'command',
-            command: `curl -s --connect-timeout 2 -X POST -H "Content-Type: application/json" -d @- http://127.0.0.1:${port}/hook/notification?ptyId=${ptyId} || exit 0`,
-          },
-        ],
-      },
-      {
-        matcher: 'idle_prompt',
-        hooks: [
-          {
-            type: 'command',
-            command: `curl -s --connect-timeout 2 -X POST -H "Content-Type: application/json" -d @- http://127.0.0.1:${port}/hook/notification?ptyId=${ptyId} || exit 0`,
-          },
-        ],
-      },
+      { matcher: 'permission_prompt', hooks: [httpHook('/hook/notification')] },
+      { matcher: 'idle_prompt', hooks: [httpHook('/hook/notification')] },
     ],
+
+    // ── Tool activity tracking ──────────────────────────────
+    PreToolUse: [{ matcher: '*', hooks: [httpHook('/hook/tool-start', true)] }],
+    PostToolUse: [{ matcher: '*', hooks: [httpHook('/hook/tool-end', true)] }],
+
+    // ── Error detection ─────────────────────────────────────
+    StopFailure: [{ matcher: '*', hooks: [httpHook('/hook/stop-failure')] }],
+
+    // ── Context compaction ──────────────────────────────────
+    PreCompact: [{ matcher: '*', hooks: [httpHook('/hook/compact-start', true)] }],
+    PostCompact: [{ matcher: '*', hooks: [httpHook('/hook/compact-end', true)] }],
   };
 
   // Auto-detect task-context.json and inject SessionStart hook if it exists
@@ -292,10 +284,11 @@ function writeHookSettings(cwd: string, ptyId: string): void {
       },
     };
 
-    // statusLine: inline curl that reads JSON from stdin and POSTs to hook server
+    // statusLine: command that pipes Claude Code's JSON context data to our hook server
+    const contextUrl = `${base}/hook/context?ptyId=${ptyId}`;
     merged.statusLine = {
       type: 'command',
-      command: `curl -s --connect-timeout 2 -X POST -H "Content-Type: application/json" -d @- "http://127.0.0.1:${port}/hook/context?ptyId=${ptyId}" >/dev/null 2>&1`,
+      command: `curl -s --connect-timeout 2 -X POST -H "Content-Type: application/json" -d @- "${contextUrl}" >/dev/null 2>&1`,
     };
 
     // Commit attribution: undefined = Dash default, '' = suppress, other = custom.
@@ -318,8 +311,6 @@ function writeHookSettings(cwd: string, ptyId: string): void {
  * that were written during this session. Called on app quit to prevent stale hooks.
  */
 export function cleanupHookSettings(): void {
-  const hookKeys = ['Stop', 'UserPromptSubmit', 'Notification', 'SessionStart'];
-
   for (const settingsPath of writtenSettingsPaths) {
     try {
       if (!fs.existsSync(settingsPath)) continue;
@@ -328,7 +319,7 @@ export function cleanupHookSettings(): void {
       const hooks = raw.hooks;
 
       if (hooks && typeof hooks === 'object') {
-        for (const key of hookKeys) {
+        for (const key of DASH_HOOK_EVENTS) {
           delete hooks[key];
         }
         // Remove hooks object entirely if empty

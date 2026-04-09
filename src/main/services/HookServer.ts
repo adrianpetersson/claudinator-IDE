@@ -66,6 +66,38 @@ class HookServerImpl {
     }
   }
 
+  /** Read and parse a JSON POST body, enforcing a size limit. */
+  private readJsonBody(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    maxBytes: number,
+    callback: (data: Record<string, unknown>) => void,
+  ): void {
+    let body = '';
+    let overflow = false;
+    req.on('data', (chunk: Buffer) => {
+      body += chunk.toString();
+      if (body.length > maxBytes) {
+        overflow = true;
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      if (overflow) {
+        res.writeHead(413);
+        res.end('payload too large');
+        return;
+      }
+      try {
+        callback(JSON.parse(body));
+      } catch (err) {
+        console.error('[HookServer] Failed to parse JSON body:', err);
+        res.writeHead(400);
+        res.end('bad request');
+      }
+    });
+  }
+
   async start(): Promise<number> {
     if (this.server) return this._port;
 
@@ -74,94 +106,123 @@ class HookServerImpl {
         const url = new URL(req.url || '', `http://127.0.0.1:${this._port}`);
         const ptyId = url.searchParams.get('ptyId');
 
-        if (req.method === 'GET' && ptyId) {
-          if (url.pathname === '/hook/stop') {
-            console.error(`[HookServer] Stop hook fired for ptyId=${ptyId}`);
+        if (!ptyId) {
+          res.writeHead(400);
+          res.end('missing ptyId');
+          return;
+        }
+
+        const pathname = url.pathname;
+
+        // All hooks are POST — drain the JSON body before responding.
+        // IMPORTANT: Response must have an empty body (not 'ok') to avoid
+        // injecting text into Claude's conversation context.
+
+        if (pathname === '/hook/stop') {
+          this.readJsonBody(req, res, 65_536, () => {
             activityMonitor.setIdle(ptyId);
             this.showDesktopNotification(ptyId);
             res.writeHead(200);
-            res.end('ok');
-            return;
-          }
-          if (url.pathname === '/hook/busy') {
-            console.error(`[HookServer] Busy hook fired for ptyId=${ptyId}`);
-            activityMonitor.setBusy(ptyId);
-            res.writeHead(200);
-            res.end('ok');
-            return;
-          }
-        }
-
-        // Notification hook — receives JSON on stdin with:
-        //   notification_type: 'permission_prompt' | 'idle_prompt' | 'auth_success' | 'elicitation_dialog'
-        //   message: string (e.g. "Claude needs your permission to use Bash")
-        //   title: string | undefined (e.g. "Permission needed")
-        //   session_id, transcript_path, cwd, permission_mode, hook_event_name
-        if (req.method === 'POST' && ptyId && url.pathname === '/hook/notification') {
-          let body = '';
-          req.on('data', (chunk: Buffer) => {
-            body += chunk.toString();
-          });
-          req.on('end', () => {
-            try {
-              const payload = JSON.parse(body);
-              const notificationType: string = payload.notification_type;
-              const message: string | undefined = payload.message;
-              console.error(
-                `[HookServer] Notification hook fired for ptyId=${ptyId} type=${notificationType}`,
-              );
-
-              if (notificationType === 'permission_prompt') {
-                activityMonitor.setWaitingForPermission(ptyId);
-                // Use the message from Claude Code when available (e.g. "Claude needs your
-                // permission to use Bash"), otherwise fall back to a generic message.
-                const taskName = this.getTaskName(ptyId);
-                const notifBody = message
-                  ? `${taskName}: ${message}`
-                  : `${taskName} needs permission`;
-                this.showDesktopNotification(ptyId, notifBody);
-              } else if (notificationType === 'idle_prompt') {
-                activityMonitor.setIdle(ptyId);
-                this.showDesktopNotification(ptyId);
-              }
-            } catch (err) {
-              console.error('[HookServer] Failed to parse notification body:', err);
-            }
-            res.writeHead(200);
-            res.end('ok');
+            res.end();
           });
           return;
         }
 
-        // POST /hook/context — receives statusLine JSON from Claude Code
-        if (req.method === 'POST' && url.pathname === '/hook/context' && ptyId) {
-          const MAX_BODY = 65_536; // 64KB — statusLine JSON is typically <1KB
-          let body = '';
-          let overflow = false;
-          req.on('data', (chunk: Buffer) => {
-            body += chunk.toString();
-            if (body.length > MAX_BODY) {
-              overflow = true;
-              req.destroy();
-            }
+        if (pathname === '/hook/busy') {
+          this.readJsonBody(req, res, 65_536, () => {
+            activityMonitor.setBusy(ptyId);
+            res.writeHead(200);
+            res.end();
           });
-          req.on('end', () => {
-            if (overflow) {
-              res.writeHead(413);
-              res.end('payload too large');
-              return;
+          return;
+        }
+
+        if (pathname === '/hook/notification') {
+          this.readJsonBody(req, res, 65_536, (payload) => {
+            const notificationType = payload.notification_type as string;
+            const message = payload.message as string | undefined;
+
+            if (notificationType === 'permission_prompt') {
+              activityMonitor.setWaitingForPermission(ptyId);
+              const taskName = this.getTaskName(ptyId);
+              const notifBody = message
+                ? `${taskName}: ${message}`
+                : `${taskName} needs permission`;
+              this.showDesktopNotification(ptyId, notifBody);
+            } else if (notificationType === 'idle_prompt') {
+              activityMonitor.setIdle(ptyId);
+              this.showDesktopNotification(ptyId);
             }
-            try {
-              const data = JSON.parse(body);
-              contextUsageService.updateFromStatusLine(ptyId, data);
-              activityMonitor.noteStatusLine(ptyId);
-              res.writeHead(200);
-              res.end('ok');
-            } catch (err) {
-              console.error('[HookServer] Failed to process context body:', err);
-              res.writeHead(400);
-              res.end('bad request');
+
+            res.writeHead(200);
+            res.end();
+          });
+          return;
+        }
+
+        // StatusLine — context usage data (from curl command, not a hook)
+        if (pathname === '/hook/context') {
+          this.readJsonBody(req, res, 65_536, (data) => {
+            contextUsageService.updateFromStatusLine(ptyId, data);
+            activityMonitor.noteStatusLine(ptyId);
+            res.writeHead(200);
+            res.end();
+          });
+          return;
+        }
+
+        if (pathname === '/hook/tool-start') {
+          this.readJsonBody(req, res, 65_536, (payload) => {
+            const toolName = (payload.tool_name as string) || 'unknown';
+            const toolInput = payload.tool_input as Record<string, unknown> | undefined;
+            activityMonitor.setToolStart(ptyId, toolName, toolInput);
+            res.writeHead(200);
+            res.end();
+          });
+          return;
+        }
+
+        if (pathname === '/hook/tool-end') {
+          this.readJsonBody(req, res, 65_536, () => {
+            activityMonitor.setToolEnd(ptyId);
+            res.writeHead(200);
+            res.end();
+          });
+          return;
+        }
+
+        if (pathname === '/hook/stop-failure') {
+          this.readJsonBody(req, res, 65_536, (payload) => {
+            const errorType = (payload.error_type as string) || 'unknown';
+            const message = payload.error as string | undefined;
+            console.error(`[HookServer] StopFailure for ptyId=${ptyId} type=${errorType}`);
+            activityMonitor.setError(ptyId, errorType, message);
+
+            if (errorType === 'rate_limit') {
+              const taskName = this.getTaskName(ptyId);
+              this.showDesktopNotification(ptyId, `${taskName} hit rate limit`);
             }
+
+            res.writeHead(200);
+            res.end();
+          });
+          return;
+        }
+
+        if (pathname === '/hook/compact-start') {
+          this.readJsonBody(req, res, 65_536, () => {
+            activityMonitor.setCompacting(ptyId, true);
+            res.writeHead(200);
+            res.end();
+          });
+          return;
+        }
+
+        if (pathname === '/hook/compact-end') {
+          this.readJsonBody(req, res, 65_536, () => {
+            activityMonitor.setCompacting(ptyId, false);
+            res.writeHead(200);
+            res.end();
           });
           return;
         }

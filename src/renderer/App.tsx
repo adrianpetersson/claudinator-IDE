@@ -34,6 +34,7 @@ import type {
   LinkedAdoWorkItem,
   RemoteControlState,
   UsageThresholds,
+  ActivityInfo,
   PixelAgentsConfig,
   PixelAgentsStatus,
 } from '../shared/types';
@@ -142,7 +143,7 @@ export function App() {
   }, [commitAttribution]);
 
   // Activity state — keys are PTY IDs that have active sessions
-  const [taskActivity, setTaskActivity] = useState<Record<string, 'busy' | 'idle' | 'waiting'>>({});
+  const [taskActivity, setTaskActivity] = useState<Record<string, ActivityInfo>>({});
 
   // Remote control state
   const [remoteControlStates, setRemoteControlStates] = useState<
@@ -268,7 +269,7 @@ export function App() {
 
   // Activity monitor — subscribe first, then query to avoid race
   useEffect(() => {
-    const prevActivity: Record<string, 'busy' | 'idle' | 'waiting'> = {};
+    const prevState: Record<string, string> = {};
     // Track PTYs that have been idle at least once, so we skip the initial
     // busy→idle transition that fires when a direct-spawn PTY first registers.
     const hasBeenIdle = new Set<string>();
@@ -280,8 +281,8 @@ export function App() {
     const unsubscribe = window.electronAPI.onPtyActivity((newActivity) => {
       // Peon mode: detect idle→busy transitions (user submits query)
       if (notificationSoundRef.current === 'peon') {
-        for (const [id, state] of Object.entries(newActivity)) {
-          if (prevActivity[id] === 'idle' && state === 'busy' && hasBeenIdle.has(id)) {
+        for (const [id, info] of Object.entries(newActivity)) {
+          if (prevState[id] === 'idle' && info.state === 'busy' && hasBeenIdle.has(id)) {
             playPeonSound('yes');
             break;
           }
@@ -291,8 +292,8 @@ export function App() {
       // Skip transitions from 'waiting' — those are not task completions
       // Skip brief busy flashes (< 3s) — these are startup artifacts, not real work
       const newlyDoneIds: string[] = [];
-      for (const [id, state] of Object.entries(newActivity)) {
-        if (prevActivity[id] === 'busy' && state === 'idle' && hasBeenIdle.has(id)) {
+      for (const [id, info] of Object.entries(newActivity)) {
+        if (prevState[id] === 'busy' && info.state === 'idle' && hasBeenIdle.has(id)) {
           const elapsed = Date.now() - (busySince[id] ?? Date.now());
           if (elapsed >= MIN_BUSY_DURATION_MS) {
             newlyDoneIds.push(id);
@@ -301,10 +302,10 @@ export function App() {
       }
 
       // Track busy start times (after detection, so busySince is still available above)
-      for (const [id, state] of Object.entries(newActivity)) {
-        if (state === 'busy' && prevActivity[id] !== 'busy') {
+      for (const [id, info] of Object.entries(newActivity)) {
+        if (info.state === 'busy' && prevState[id] !== 'busy') {
           busySince[id] = Date.now();
-        } else if (state !== 'busy') {
+        } else if (info.state !== 'busy') {
           delete busySince[id];
         }
       }
@@ -317,25 +318,27 @@ export function App() {
         }
       }
       // Mark PTYs that have reached idle (so the *next* busy→idle triggers)
-      for (const [id, state] of Object.entries(newActivity)) {
-        if (state === 'idle') hasBeenIdle.add(id);
+      for (const [id, info] of Object.entries(newActivity)) {
+        if (info.state === 'idle') hasBeenIdle.add(id);
       }
       // Clean up removed PTYs
       for (const id of hasBeenIdle) {
         if (!(id in newActivity)) hasBeenIdle.delete(id);
       }
-      // Update previous state (shallow copy)
-      Object.keys(prevActivity).forEach((k) => delete prevActivity[k]);
-      Object.assign(prevActivity, newActivity);
+      // Update previous state (shallow copy of states only)
+      for (const k of Object.keys(prevState)) delete prevState[k];
+      for (const [id, info] of Object.entries(newActivity)) {
+        prevState[id] = info.state;
+      }
 
       setTaskActivity(newActivity);
     });
 
     window.electronAPI.ptyGetAllActivity().then((resp) => {
       if (resp.success && resp.data) {
-        Object.assign(prevActivity, resp.data);
-        for (const [id, state] of Object.entries(resp.data)) {
-          if (state === 'idle') hasBeenIdle.add(id);
+        for (const [id, info] of Object.entries(resp.data)) {
+          prevState[id] = info.state;
+          if (info.state === 'idle') hasBeenIdle.add(id);
         }
         setTaskActivity(resp.data);
       }
@@ -910,9 +913,7 @@ export function App() {
               prompt,
               meta: {
                 githubIssues:
-                  ghItems.length > 0
-                    ? ghItems.map((i) => ({ id: i.id, url: i.url }))
-                    : undefined,
+                  ghItems.length > 0 ? ghItems.map((i) => ({ id: i.id, url: i.url })) : undefined,
                 adoWorkItems:
                   adoItems.length > 0
                     ? adoItems.map((wi) => ({ id: wi.id, url: wi.url }))
