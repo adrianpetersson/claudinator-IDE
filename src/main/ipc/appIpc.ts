@@ -283,8 +283,7 @@ export function registerAppIpc(): void {
         const editor = await detectEditor();
 
         // Build location string with line:col for editors that support -g
-        const gotoEditors = ['code', 'cursor', 'zed'];
-        const isGotoEditor = gotoEditors.some((e) => editor === e || editor.endsWith(`/${e}`));
+        const isGotoEditor = /[\\/]?(cursor|code|zed)(\.cmd|\.exe)?$/i.test(editor);
 
         if (isGotoEditor) {
           const location =
