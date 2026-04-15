@@ -81,6 +81,8 @@ app.whenReady().then(async () => {
 
   // Start hook server (must be ready before any PTY spawns)
   const { hookServer } = await import('./services/HookServer');
+  const { hasPty } = await import('./services/ptyManager');
+  hookServer.setPtyValidator(hasPty);
   await hookServer.start();
 
   // Register IPC handlers
@@ -105,6 +107,10 @@ app.whenReady().then(async () => {
   // Remote control service needs a sender for state change events
   const { remoteControlService } = await import('./services/remoteControlService');
   remoteControlService.setSender(mainWindow.webContents);
+
+  // Start context usage service — broadcasts status line data to renderer
+  const { contextUsageService } = await import('./services/ContextUsageService');
+  contextUsageService.setSender(mainWindow.webContents);
 
   // Initialize auto-updater (production only)
   if (!process.argv.includes('--dev')) {
@@ -180,6 +186,8 @@ app.on('activate', async () => {
     remoteControlService.setSender(mainWindow.webContents);
     const { PixelAgentsService } = await import('./services/PixelAgentsService');
     PixelAgentsService.setSender(mainWindow.webContents);
+    const { contextUsageService } = await import('./services/ContextUsageService');
+    contextUsageService.setSender(mainWindow.webContents);
 
     // Update auto-updater window reference
     if (!process.argv.includes('--dev')) {
@@ -231,6 +239,14 @@ app.on('before-quit', async () => {
   try {
     const { killAll } = await import('./services/ptyManager');
     killAll();
+  } catch {
+    // Best effort
+  }
+
+  // Stop context usage service (clears debounce timer)
+  try {
+    const { contextUsageService } = await import('./services/ContextUsageService');
+    contextUsageService.stop();
   } catch {
     // Best effort
   }

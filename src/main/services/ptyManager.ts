@@ -6,6 +6,7 @@ import { promisify } from 'util';
 import { type WebContents, app } from 'electron';
 import { activityMonitor } from './ActivityMonitor';
 import { hookServer } from './HookServer';
+import { contextUsageService } from './ContextUsageService';
 import { DatabaseService } from './DatabaseService';
 
 const execFileAsync = promisify(execFile);
@@ -27,7 +28,7 @@ function findClaudeProjectDir(cwd: string): string | null {
     const parts = cwd.split('/').filter((p) => p.length > 0);
     const suffix = parts.slice(-3).join('-');
     const dirs = fs.readdirSync(projectsDir);
-    const match = dirs.find((d) => d.includes(suffix));
+    const match = dirs.find((d) => d.endsWith(suffix));
     if (match) return path.join(projectsDir, match);
 
     return null;
@@ -89,6 +90,10 @@ export function setCommitAttribution(value: string | undefined): void {
 
 export function setDesktopNotification(opts: { enabled: boolean }): void {
   hookServer.setDesktopNotification(opts);
+}
+
+export function hasPty(id: string): boolean {
+  return ptys.has(id);
 }
 
 export function setClaudeEnvVars(vars: Record<string, string>): void {
@@ -216,15 +221,15 @@ function buildDirectEnv(isDark: boolean): Record<string, string> {
     }
   }
 
-  // Merge user-configured Claude Code env vars (curated toggles + custom vars from settings),
-  // but prevent overriding internal keys that would break spawned processes.
+  // Merge user-configured environment variables from settings,
+  // preventing overrides of internal keys that would break spawned processes.
   for (const [key, value] of Object.entries(claudeEnvVars)) {
     if (!RESERVED_ENV_KEYS.has(key)) {
       env[key] = value;
     }
   }
 
-  // Always enable fullscreen rendering (NO_FLICKER) — Dash handles its own viewport
+  // Disable Claude Code's built-in viewport scrolling — Dash uses its own terminal viewport
   env.CLAUDE_CODE_NO_FLICKER = '1';
 
   return env;
@@ -242,23 +247,28 @@ function getTaskContextPrompt(taskId: string): string | null {
 }
 
 /**
- * Write .claude/settings.local.json with Stop, UserPromptSubmit, Notification,
- * and (optionally) SessionStart hooks.
+ * All hook event names that Dash writes to settings.local.json.
+ * Used by both writeHookSettings and cleanupHookSettings.
+ */
+const DASH_HOOK_EVENTS = [
+  'Stop',
+  'UserPromptSubmit',
+  'Notification',
+  'PreToolUse',
+  'PostToolUse',
+  'StopFailure',
+  'PreCompact',
+  'PostCompact',
+  'SessionStart',
+] as const;
+
+/**
+ * Write .claude/settings.local.json with hooks for activity monitoring,
+ * tool tracking, error detection, and context usage.
  *
- * Notification hooks fire when Claude Code sends notifications. Each entry can
- * include a `matcher` to filter by notification_type:
- *   - permission_prompt  — Claude needs the user to approve a tool use
- *   - idle_prompt        — Claude is idle / waiting for user input
- *   - auth_success       — authentication completed successfully
- *   - elicitation_dialog — Claude is presenting a dialog for user input
- * Omit the matcher to run the hook for all notification types.
- *
- * The hook receives JSON on stdin with these fields:
- *   session_id, transcript_path, cwd, permission_mode, hook_event_name,
- *   message (notification text), title (optional), notification_type.
- *
- * Notification hooks cannot block or modify notifications but may return
- * { additionalContext: string } to inject context into the conversation.
+ * Hooks use type: "http" — Claude Code POSTs the hook JSON body directly
+ * to our local HookServer. The statusLine uses type: "command" with curl
+ * (http type is not supported for statusLine).
  */
 function writeHookSettings(cwd: string, ptyId: string): void {
   const port = hookServer.port;
@@ -266,34 +276,36 @@ function writeHookSettings(cwd: string, ptyId: string): void {
 
   const claudeDir = path.join(cwd, '.claude');
   const settingsPath = path.join(claudeDir, 'settings.local.json');
-  const curlGet = `curl -s --connect-timeout 2 http://127.0.0.1:${port}`;
-  const curlPost = `curl -s --connect-timeout 2 -X POST -H "Content-Type: application/json" -d @- http://127.0.0.1:${port}`;
+  const base = `http://127.0.0.1:${port}`;
 
-  const postHook = (endpoint: string) => ({
-    type: 'command',
-    command: `${curlPost}${endpoint}?ptyId=${ptyId} || exit 0`,
+  /** Shorthand: build an HTTP hook entry. */
+  const httpHook = (endpoint: string, async?: boolean) => ({
+    type: 'http' as const,
+    url: `${base}${endpoint}?ptyId=${ptyId}`,
+    ...(async ? { async: true } : {}),
   });
 
   const hookSettings: Record<string, unknown[]> = {
-    Stop: [
-      {
-        hooks: [postHook('/hook/stop')],
-      },
+    // ── Activity state signals ──────────────────────────────
+    Stop: [{ hooks: [httpHook('/hook/stop')] }],
+    UserPromptSubmit: [{ hooks: [httpHook('/hook/busy')] }],
+
+    // ── Notification (permission prompt, idle) ──────────────
+    Notification: [
+      { matcher: 'permission_prompt', hooks: [httpHook('/hook/notification')] },
+      { matcher: 'idle_prompt', hooks: [httpHook('/hook/notification')] },
     ],
-    UserPromptSubmit: [
-      {
-        hooks: [
-          {
-            type: 'command',
-            command: `${curlGet}/hook/busy?ptyId=${ptyId} || exit 0`,
-          },
-        ],
-      },
-    ],
-    Notification: ['permission_prompt', 'idle_prompt'].map((matcher) => ({
-      matcher,
-      hooks: [postHook('/hook/notification')],
-    })),
+
+    // ── Tool activity tracking ──────────────────────────────
+    PreToolUse: [{ matcher: '*', hooks: [httpHook('/hook/tool-start', true)] }],
+    PostToolUse: [{ matcher: '*', hooks: [httpHook('/hook/tool-end', true)] }],
+
+    // ── Error detection ─────────────────────────────────────
+    StopFailure: [{ matcher: '*', hooks: [httpHook('/hook/stop-failure')] }],
+
+    // ── Context compaction ──────────────────────────────────
+    PreCompact: [{ matcher: '*', hooks: [httpHook('/hook/compact-start', true)] }],
+    PostCompact: [{ matcher: '*', hooks: [httpHook('/hook/compact-end', true)] }],
   };
 
   // Inject task context via SessionStart hook. Fires on startup (new session),
@@ -309,11 +321,12 @@ function writeHookSettings(cwd: string, ptyId: string): void {
     // Use base64 encoding to safely embed user-controlled content in a shell command.
     // Single-quote escaping is fragile with content from GitHub issues / ADO work items.
     const b64 = Buffer.from(hookPayload).toString('base64');
+    const decodeFlag = process.platform === 'darwin' ? '-D' : '-d';
     const sessionStartHook = {
       hooks: [
         {
           type: 'command',
-          command: `echo '${b64}' | base64 -d`,
+          command: `echo '${b64}' | base64 ${decodeFlag}`,
         },
       ],
     };
@@ -353,6 +366,13 @@ function writeHookSettings(cwd: string, ptyId: string): void {
       },
     };
 
+    // statusLine: command that pipes Claude Code's JSON context data to our hook server
+    const contextUrl = `${base}/hook/context?ptyId=${ptyId}`;
+    merged.statusLine = {
+      type: 'command',
+      command: `curl -s --connect-timeout 2 -X POST -H "Content-Type: application/json" -d @- "${contextUrl}" >/dev/null 2>&1`,
+    };
+
     // Commit attribution: undefined = Dash default, '' = suppress, other = custom.
     const effectiveAttribution =
       commitAttributionSetting === undefined ? DASH_DEFAULT_ATTRIBUTION : commitAttributionSetting;
@@ -373,8 +393,6 @@ function writeHookSettings(cwd: string, ptyId: string): void {
  * that were written during this session. Called on app quit to prevent stale hooks.
  */
 export function cleanupHookSettings(): void {
-  const hookKeys = ['Stop', 'UserPromptSubmit', 'Notification', 'SessionStart'];
-
   for (const settingsPath of writtenSettingsPaths) {
     try {
       if (!fs.existsSync(settingsPath)) continue;
@@ -383,7 +401,7 @@ export function cleanupHookSettings(): void {
       const hooks = raw.hooks;
 
       if (hooks && typeof hooks === 'object') {
-        for (const key of hookKeys) {
+        for (const key of DASH_HOOK_EVENTS) {
           delete hooks[key];
         }
         // Remove hooks object entirely if empty
@@ -392,7 +410,8 @@ export function cleanupHookSettings(): void {
         }
       }
 
-      // Remove Dash attribution
+      // Remove Dash statusLine and attribution
+      delete raw.statusLine;
       delete raw.attribution;
 
       // If nothing meaningful remains, delete the file
@@ -507,6 +526,7 @@ export async function startDirectPty(options: {
     if (ptys.get(options.id) !== record) return;
     activityMonitor.unregister(options.id);
     remoteControlService.unregister(options.id);
+    contextUsageService.unregister(options.id);
     if (record.owner && !record.owner.isDestroyed()) {
       record.owner.send(`pty:exit:${options.id}`, { exitCode, signal });
     }
@@ -738,6 +758,7 @@ export function killPty(id: string): void {
     ptys.delete(id);
     activityMonitor.unregister(id);
     remoteControlService.unregister(id);
+    contextUsageService.unregister(id);
     try {
       record.proc.kill();
     } catch {
@@ -771,6 +792,7 @@ export function killByOwner(owner: WebContents): void {
       ptys.delete(id);
       activityMonitor.unregister(id);
       remoteControlService.unregister(id);
+      contextUsageService.unregister(id);
       try {
         record.proc.kill();
       } catch {
