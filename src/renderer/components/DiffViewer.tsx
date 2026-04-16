@@ -501,7 +501,7 @@ export function DiffViewer({ diff, loading, activeTaskId, onClose }: DiffViewerP
               diff.hunks.map((hunk, hi) => (
                 <div key={hi}>
                   {/* Hunk header */}
-                  <div className="diff-hunk px-5 py-1.5 text-[hsl(var(--git-renamed))]/70 border-y border-border/20 sticky top-0 backdrop-blur-sm text-[11px]">
+                  <div className="diff-hunk px-5 py-1.5 text-[hsl(var(--git-renamed))]/70 border-y border-border/20 sticky top-0 backdrop-blur-sm text-[11px] min-w-fit">
                     {hunk.header}
                   </div>
 
@@ -519,7 +519,7 @@ export function DiffViewer({ diff, loading, activeTaskId, onClose }: DiffViewerP
                         data-hunk={hi}
                         data-line={li}
                         className={[
-                          'flex',
+                          'flex min-w-fit',
                           selected
                             ? 'diff-line-selected'
                             : isAdd
