@@ -496,95 +496,97 @@ export function DiffViewer({ diff, loading, activeTaskId, onClose }: DiffViewerP
               </div>
             )}
 
-            {diff &&
-              !diff.isBinary &&
-              diff.hunks.map((hunk, hi) => (
-                <div key={hi}>
-                  {/* Hunk header */}
-                  <div className="diff-hunk px-5 py-1.5 text-[hsl(var(--git-renamed))]/70 border-y border-border/20 sticky top-0 backdrop-blur-sm text-[11px] min-w-fit">
-                    {hunk.header}
-                  </div>
+            {diff && !diff.isBinary && diff.hunks.length > 0 && (
+              <div className="inline-block min-w-full">
+                {diff.hunks.map((hunk, hi) => (
+                  <div key={hi}>
+                    {/* Hunk header */}
+                    <div className="diff-hunk px-5 py-1.5 text-[hsl(var(--git-renamed))]/70 border-y border-border/20 sticky top-0 backdrop-blur-sm text-[11px]">
+                      {hunk.header}
+                    </div>
 
-                  {/* Lines */}
-                  {hunk.lines.map((line, li) => {
-                    const isAdd = line.type === 'add';
-                    const isDel = line.type === 'delete';
-                    const selected = isLineInSelection(hi, li);
-                    const commented = isLineCommented(hi, li);
-                    const commentStart = isFirstLineOfComment(hi, li);
+                    {/* Lines */}
+                    {hunk.lines.map((line, li) => {
+                      const isAdd = line.type === 'add';
+                      const isDel = line.type === 'delete';
+                      const selected = isLineInSelection(hi, li);
+                      const commented = isLineCommented(hi, li);
+                      const commentStart = isFirstLineOfComment(hi, li);
 
-                    return (
-                      <div
-                        key={`${hi}-${li}`}
-                        data-hunk={hi}
-                        data-line={li}
-                        className={[
-                          'flex min-w-fit',
-                          selected
-                            ? 'diff-line-selected'
-                            : isAdd
-                              ? 'diff-add'
-                              : isDel
-                                ? 'diff-delete'
-                                : '',
-                          commented && !selected ? 'diff-line-commented' : '',
-                          'transition-colors duration-75',
-                        ].join(' ')}
-                      >
-                        {/* Comment indicator */}
-                        {commentStart && !selected && (
-                          <span className="w-0 relative">
-                            <MessageSquare
-                              size={10}
-                              strokeWidth={2}
-                              className="absolute -left-0.5 top-[5px] text-primary/60"
-                            />
+                      return (
+                        <div
+                          key={`${hi}-${li}`}
+                          data-hunk={hi}
+                          data-line={li}
+                          className={[
+                            'flex',
+                            selected
+                              ? 'diff-line-selected'
+                              : isAdd
+                                ? 'diff-add'
+                                : isDel
+                                  ? 'diff-delete'
+                                  : '',
+                            commented && !selected ? 'diff-line-commented' : '',
+                            'transition-colors duration-75',
+                          ].join(' ')}
+                        >
+                          {/* Comment indicator */}
+                          {commentStart && !selected && (
+                            <span className="w-0 relative">
+                              <MessageSquare
+                                size={10}
+                                strokeWidth={2}
+                                className="absolute -left-0.5 top-[5px] text-primary/60"
+                              />
+                            </span>
+                          )}
+
+                          {/* Old line number */}
+                          <span
+                            className="w-14 flex-shrink-0 text-right pr-3 text-muted-foreground/20 select-none border-r border-border/10 tabular-nums diff-gutter-clickable"
+                            onMouseDown={(e) => handleGutterMouseDown(e, hi, li)}
+                          >
+                            {line.oldLineNumber ?? ''}
                           </span>
-                        )}
-
-                        {/* Old line number */}
-                        <span
-                          className="w-14 flex-shrink-0 text-right pr-3 text-muted-foreground/20 select-none border-r border-border/10 tabular-nums diff-gutter-clickable"
-                          onMouseDown={(e) => handleGutterMouseDown(e, hi, li)}
-                        >
-                          {line.oldLineNumber ?? ''}
-                        </span>
-                        {/* New line number */}
-                        <span
-                          className="w-14 flex-shrink-0 text-right pr-3 text-muted-foreground/20 select-none border-r border-border/10 tabular-nums diff-gutter-clickable"
-                          onMouseDown={(e) => handleGutterMouseDown(e, hi, li)}
-                        >
-                          {line.newLineNumber ?? ''}
-                        </span>
-                        {/* Marker */}
-                        <span
-                          className={`w-8 flex-shrink-0 text-center select-none ${
-                            isAdd
-                              ? 'text-[hsl(var(--git-added))]/60'
-                              : isDel
-                                ? 'text-[hsl(var(--git-deleted))]/60'
-                                : 'text-muted-foreground/15'
-                          }`}
-                        >
-                          {isAdd ? '+' : isDel ? '-' : ' '}
-                        </span>
-                        {/* Content */}
-                        <span
-                          className={`flex-1 pr-5 whitespace-pre ${
-                            isAdd
-                              ? 'text-[hsl(var(--git-added))]/80'
-                              : isDel
-                                ? 'text-[hsl(var(--git-deleted))]/80'
-                                : 'text-foreground/70'
-                          }`}
-                        >
-                          {line.content}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
+                          {/* New line number */}
+                          <span
+                            className="w-14 flex-shrink-0 text-right pr-3 text-muted-foreground/20 select-none border-r border-border/10 tabular-nums diff-gutter-clickable"
+                            onMouseDown={(e) => handleGutterMouseDown(e, hi, li)}
+                          >
+                            {line.newLineNumber ?? ''}
+                          </span>
+                          {/* Marker */}
+                          <span
+                            className={`w-8 flex-shrink-0 text-center select-none ${
+                              isAdd
+                                ? 'text-[hsl(var(--git-added))]/60'
+                                : isDel
+                                  ? 'text-[hsl(var(--git-deleted))]/60'
+                                  : 'text-muted-foreground/15'
+                            }`}
+                          >
+                            {isAdd ? '+' : isDel ? '-' : ' '}
+                          </span>
+                          {/* Content */}
+                          <span
+                            className={`flex-1 pr-5 whitespace-pre ${
+                              isAdd
+                                ? 'text-[hsl(var(--git-added))]/80'
+                                : isDel
+                                  ? 'text-[hsl(var(--git-deleted))]/80'
+                                  : 'text-foreground/70'
+                            }`}
+                          >
+                            {line.content}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Comment popover */}
             {popover && (
