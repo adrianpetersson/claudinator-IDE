@@ -13,6 +13,25 @@ import { terminalSnapshotService } from './TerminalSnapshotService';
 const execFileAsync = promisify(execFile);
 
 /**
+ * Read the user's globally-configured Claude Code statusLine command, if any.
+ * Returned so we can wrap (not replace) it in settings.local.json.
+ */
+function readUserStatusLineCommand(): string | null {
+  try {
+    const globalPath = path.join(os.homedir(), '.claude', 'settings.json');
+    if (!fs.existsSync(globalPath)) return null;
+    const raw = JSON.parse(fs.readFileSync(globalPath, 'utf-8'));
+    const sl = raw?.statusLine;
+    if (sl?.type === 'command' && typeof sl.command === 'string' && sl.command.trim()) {
+      return sl.command;
+    }
+  } catch {
+    // Best effort
+  }
+  return null;
+}
+
+/**
  * Locate the Claude projects directory for a given cwd.
  * Claude stores sessions under ~/.claude/projects/<encoded-cwd>/.
  */
@@ -437,11 +456,17 @@ function writeHookSettings(cwd: string, ptyId: string): void {
       },
     };
 
-    // statusLine: command that pipes Claude Code's JSON context data to our hook server
+    // statusLine: pipe JSON to the hook server for context capture, AND run the
+    // user's globally-configured statusLine command so its output renders in the
+    // terminal. tee duplicates stdin: one copy → curl (silenced), other → user cmd.
     const contextUrl = `${base}/hook/context?ptyId=${ptyId}`;
+    const dashCurl = `curl -s --connect-timeout 2 -X POST -H "Content-Type: application/json" -d @- "${contextUrl}" >/dev/null 2>&1`;
+    const userStatusLine = readUserStatusLineCommand();
     merged.statusLine = {
       type: 'command',
-      command: `curl -s --connect-timeout 2 -X POST -H "Content-Type: application/json" -d @- "${contextUrl}" >/dev/null 2>&1`,
+      command: userStatusLine
+        ? `bash -c 'tee >(${dashCurl}) | { ${userStatusLine.replace(/'/g, "'\\''")} ; }'`
+        : dashCurl,
     };
 
     // Commit attribution: undefined = Claudinator default, '' = suppress, other = custom.
