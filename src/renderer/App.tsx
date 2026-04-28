@@ -1253,6 +1253,23 @@ export function App() {
     }
   }
 
+  // Listen for file-path clicks inside the terminal (Claude Code's
+  // `Update(path)`, `Edit(path)`, etc.) and open the diff in focus mode.
+  const handleViewDiffRef = useRef(handleViewDiff);
+  useEffect(() => {
+    handleViewDiffRef.current = handleViewDiff;
+  });
+  useEffect(() => {
+    function handler(e: Event) {
+      const ce = e as CustomEvent<{ taskId: string; filePath: string }>;
+      if (!ce.detail) return;
+      if (ce.detail.taskId !== activeTaskId) return;
+      handleViewDiffRef.current(ce.detail.filePath, false);
+    }
+    window.addEventListener('claudinator:open-file', handler);
+    return () => window.removeEventListener('claudinator:open-file', handler);
+  }, [activeTaskId]);
+
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden">
       {window.electronAPI.getPlatform() === 'darwin' && !showDiff && (

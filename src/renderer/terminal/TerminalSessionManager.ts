@@ -254,6 +254,10 @@ export class TerminalSessionManager {
       if (core?.viewport) {
         core.viewport.scrollBarWidth = 0;
       }
+      // Make file paths in Claude Code's tool output ("Update(path)", "Edit(path)",
+      // "Read(path)", etc.) clickable. On click we dispatch a custom event that
+      // App.tsx handles by opening the diff modal in focus mode.
+      this.registerFilePathLinks();
       // Load GPU addon after terminal is in DOM
       await this.loadGpuAddon();
       // After yielding, check if a newer attach() has started (React remount)
@@ -599,6 +603,70 @@ export class TerminalSessionManager {
       ? TerminalSessionManager.COL_RESERVE_SHELL
       : TerminalSessionManager.COL_RESERVE;
     return Math.max(1, cols - reserve);
+  }
+
+  /**
+   * Make Claude Code's tool-output file paths clickable. Matches lines like
+   * `● Update(app/(tabs)/entrance/index.tsx)` and dispatches a custom event
+   * on click. The event carries the task id and captured path; App.tsx
+   * subscribes and opens the diff modal in focus mode.
+   *
+   * Uses xterm's link provider API rather than regex link matcher so we get
+   * accurate column boundaries (paths can contain parens, e.g. `(tabs)`).
+   */
+  private registerFilePathLinks() {
+    const TOOL_PREFIXES = ['Update', 'Edit', 'Write', 'MultiEdit', 'Read', 'Create'];
+    const sessionId = this.id;
+
+    this.terminal.registerLinkProvider({
+      provideLinks: (lineNumber, callback) => {
+        const buf = this.terminal.buffer.active;
+        const bufLine = buf.getLine(lineNumber - 1);
+        if (!bufLine) {
+          callback(undefined);
+          return;
+        }
+        const text = bufLine.translateToString(true);
+
+        const links: Array<{
+          range: { start: { x: number; y: number }; end: { x: number; y: number } };
+          text: string;
+          activate: () => void;
+        }> = [];
+
+        for (const prefix of TOOL_PREFIXES) {
+          // Match `Prefix(...)` greedy to the last `)` on the line so paths
+          // containing parens (e.g. `(tabs)`) capture correctly.
+          const re = new RegExp(`\\b${prefix}\\((.+)\\)`);
+          const match = re.exec(text);
+          if (!match) continue;
+          const path = match[1];
+          // Column index of the start of the path (after `Prefix(`).
+          // xterm columns are 1-based for the link range API.
+          const pathStart = match.index + prefix.length + 1;
+          const pathEnd = pathStart + path.length;
+          links.push({
+            range: {
+              start: { x: pathStart + 1, y: lineNumber },
+              end: { x: pathEnd, y: lineNumber },
+            },
+            text: path,
+            activate: () => {
+              window.dispatchEvent(
+                new CustomEvent('claudinator:open-file', {
+                  detail: { taskId: sessionId, filePath: path },
+                }),
+              );
+            },
+          });
+          // Only the first matching prefix per line; further prefixes can't
+          // realistically appear inside the same line of Claude Code TUI.
+          break;
+        }
+
+        callback(links.length > 0 ? links : undefined);
+      },
+    });
   }
 
   private fit() {
