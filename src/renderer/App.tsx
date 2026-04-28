@@ -1255,16 +1255,25 @@ export function App() {
 
   // Listen for file-path clicks inside the terminal (Claude Code's
   // `Update(path)`, `Edit(path)`, etc.) and open the diff in focus mode.
+  // Look up the file in gitStatus to determine whether to show the staged
+  // or unstaged diff — prefer unstaged, fall back to staged.
   const handleViewDiffRef = useRef(handleViewDiff);
+  const gitStatusRef = useRef(gitStatus);
   useEffect(() => {
     handleViewDiffRef.current = handleViewDiff;
+    gitStatusRef.current = gitStatus;
   });
   useEffect(() => {
     function handler(e: Event) {
       const ce = e as CustomEvent<{ taskId: string; filePath: string }>;
       if (!ce.detail) return;
       if (ce.detail.taskId !== activeTaskId) return;
-      handleViewDiffRef.current(ce.detail.filePath, false);
+      const path = ce.detail.filePath;
+      const files = gitStatusRef.current?.files ?? [];
+      const unstaged = files.find((f) => f.path === path && !f.staged);
+      const staged = files.find((f) => f.path === path && f.staged);
+      const useStaged = !unstaged && !!staged;
+      handleViewDiffRef.current(path, useStaged);
     }
     window.addEventListener('claudinator:open-file', handler);
     return () => window.removeEventListener('claudinator:open-file', handler);
