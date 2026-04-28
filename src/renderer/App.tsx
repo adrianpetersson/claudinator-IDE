@@ -1474,6 +1474,23 @@ export function App() {
             </Panel>
           </>
         )}
+
+        {showDiff && (
+          <>
+            <PanelResizeHandle className="w-[1px] bg-border/40" />
+            <Panel defaultSize={42} minSize={25} maxSize={65} order={3}>
+              <DiffViewer
+                diff={diffResult}
+                loading={diffLoading}
+                activeTaskId={activeTaskId}
+                onClose={() => {
+                  setShowDiff(false);
+                  setDiffResult(null);
+                }}
+              />
+            </Panel>
+          </>
+        )}
       </PanelGroup>
 
       {showAddProjectModal && (
@@ -1697,18 +1714,6 @@ export function App() {
           onSelectTask={(taskId) => {
             setActiveTaskId(taskId);
             setShowCommitGraph(false);
-          }}
-        />
-      )}
-
-      {showDiff && (
-        <DiffViewer
-          diff={diffResult}
-          loading={diffLoading}
-          activeTaskId={activeTaskId}
-          onClose={() => {
-            setShowDiff(false);
-            setDiffResult(null);
           }}
         />
       )}
