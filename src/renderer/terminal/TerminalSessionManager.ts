@@ -60,8 +60,10 @@ export class TerminalSessionManager {
 
     this.terminal = new Terminal({
       scrollback: 100_000,
+      fontFamily:
+        "'JetBrainsMono Nerd Font', 'JetBrainsMonoNL Nerd Font', 'JetBrains Mono', 'SF Mono', Menlo, monospace",
       fontSize: 13,
-      lineHeight: 1.2,
+      lineHeight: 1.0,
       allowProposedApi: true,
       theme: resolveTheme(this.themeId, this.isDark),
       cursorBlink: true,
