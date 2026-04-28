@@ -574,8 +574,8 @@ export class TerminalSessionManager {
   }
 
   /** Reserve columns so the TUI doesn't render into the right edge. */
-  private static readonly COL_RESERVE = 5;
-  private static readonly COL_RESERVE_SHELL = 1;
+  private static readonly COL_RESERVE = 0;
+  private static readonly COL_RESERVE_SHELL = 0;
 
   /** Reduce cols for PTY so the TUI leaves a right-side gutter. */
   private ptyCols(cols: number): number {
