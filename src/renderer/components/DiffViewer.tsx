@@ -445,6 +445,29 @@ export function DiffViewer({ diff, loading, activeTaskId, onClose }: DiffViewerP
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Inline Diff/File segmented toggle */}
+          <div
+            className="flex items-center rounded-md p-0.5 gap-0.5"
+            style={{ background: 'hsl(var(--surface-1))' }}
+          >
+            {(['diff', 'file'] as const).map((mode) => {
+              const active = viewMode === mode;
+              return (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  className={[
+                    'px-2.5 py-0.5 text-[10px] font-medium rounded transition-colors',
+                    active
+                      ? 'bg-card text-foreground shadow-sm'
+                      : 'text-muted-foreground/70 hover:text-foreground',
+                  ].join(' ')}
+                >
+                  {mode === 'diff' ? 'Diff' : 'File'}
+                </button>
+              );
+            })}
+          </div>
           {comments.length > 0 && (
             <button
               onClick={handleAddToPrompt}
@@ -455,31 +478,6 @@ export function DiffViewer({ diff, loading, activeTaskId, onClose }: DiffViewerP
             </button>
           )}
         </div>
-      </div>
-
-      {/* Tab strip */}
-      <div
-        className="flex items-stretch h-9 border-b border-border/60 flex-shrink-0 px-2 gap-0.5"
-        style={{ background: 'hsl(var(--surface-1))' }}
-      >
-        {(['diff', 'file'] as const).map((mode) => {
-          const active = viewMode === mode;
-          return (
-            <button
-              key={mode}
-              onClick={() => setViewMode(mode)}
-              className={[
-                'px-3 text-[11px] font-medium relative transition-colors',
-                active ? 'text-foreground' : 'text-muted-foreground/60 hover:text-muted-foreground',
-              ].join(' ')}
-            >
-              {mode === 'diff' ? 'Diff' : 'File'}
-              {active && (
-                <span className="absolute left-2 right-2 bottom-0 h-[2px] bg-primary rounded-full" />
-              )}
-            </button>
-          );
-        })}
       </div>
 
       {/* Content */}
