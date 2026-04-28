@@ -1455,10 +1455,16 @@ export function App() {
                     const rawCtx = activeTask ? contextUsage[activeTask.id] : undefined;
                     const activeCtx = showUsageInline ? rawCtx : undefined;
                     const rateLimits = showRateLimits && latestRateLimits ? latestRateLimits : {};
-                    const hasRateLimits = rateLimits.fiveHour || rateLimits.sevenDay;
-                    const hasCtx = activeCtx && activeCtx.percentage > 0;
-                    if (!hasRateLimits && !hasCtx) return null;
-                    return <UsageWidget rateLimits={rateLimits} contextUsage={activeCtx} />;
+                    const model = activeTask ? statusLineData[activeTask.id]?.model : undefined;
+                    return (
+                      <UsageWidget
+                        model={model}
+                        projectName={activeProject?.name}
+                        branch={activeTask?.branch ?? undefined}
+                        rateLimits={rateLimits}
+                        contextUsage={activeCtx}
+                      />
+                    );
                   })()}
                 <ShellDrawerWrapper
                   enabled={
