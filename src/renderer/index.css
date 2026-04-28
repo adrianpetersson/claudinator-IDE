@@ -118,13 +118,13 @@
 
 .terminal-container .xterm {
   height: 100%;
-  padding: 10px 0 14px 6px;
+  padding: 10px 0 14px 0;
 }
 
 /* Inset all edges of absolutely-positioned children to match padding. */
 .terminal-container .xterm .xterm-viewport,
 .terminal-container .xterm .xterm-screen {
-  left: 6px !important;
+  left: 0 !important;
   right: 0 !important;
   top: 10px !important;
   bottom: 14px !important;
