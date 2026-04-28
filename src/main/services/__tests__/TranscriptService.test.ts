@@ -19,8 +19,27 @@ describe('TranscriptService.parseJsonl', () => {
     expect(turns[0].turnIndex).toBe(1);
     expect(turns[0].reasoningText).toContain('auth context');
     expect(turns[0].newStrings).toEqual(['const tokenConfig = useAuthContext();\nconst x = 1']);
-    expect(turns[1].turnIndex).toBe(3);
+    // Second edit happens after a second user prompt — turnIndex 2.
+    expect(turns[1].turnIndex).toBe(2);
     expect(turns[1].newStrings).toEqual(['submitEntry']);
+  });
+
+  it('falls back to thinking text when the turn has no visible text block', () => {
+    const turns = TranscriptService.parseJsonl(
+      path.join(FIXTURES, 'transcript-basic.jsonl'),
+      '/repo/auth.ts',
+    );
+    // The second edit was preceded only by a thinking block, no text.
+    expect(turns[1].reasoningText).toContain('Renaming handleScan');
+  });
+
+  it('uses the most recent text block for each tool call (not accumulated)', () => {
+    const turns = TranscriptService.parseJsonl(
+      path.join(FIXTURES, 'transcript-basic.jsonl'),
+      '/repo/login.tsx',
+    );
+    expect(turns[0].reasoningText).toBe('Now writing the new login screen.');
+    expect(turns[0].reasoningText).not.toContain('auth context');
   });
 
   it('returns the single Write turn for a file written once', () => {
@@ -55,7 +74,7 @@ describe('TranscriptService.parseJsonl', () => {
     expect(turnsB[0].toolName).toBe('Write');
   });
 
-  it('returns empty reasoning text when the assistant message had no text block', () => {
+  it('returns empty reasoning text when no text or thinking block precedes the tool call in the turn', () => {
     const turns = TranscriptService.parseJsonl(
       path.join(FIXTURES, 'transcript-malformed.jsonl'),
       '/repo/b.ts',

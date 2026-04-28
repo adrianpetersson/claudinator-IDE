@@ -1,3 +1,6 @@
-{"type":"assistant","timestamp":"2026-04-28T10:00:00.000Z","uuid":"msg-1","message":{"id":"asst-1","content":[{"type":"text","text":"Valid turn."},{"type":"tool_use","id":"tu-1","name":"Edit","input":{"file_path":"/repo/a.ts","old_string":"a","new_string":"b"}}]}}
+{"type":"user","timestamp":"2026-04-28T10:00:00.000Z","uuid":"u-0","message":{"content":"do something"}}
+{"type":"assistant","timestamp":"2026-04-28T10:00:01.000Z","uuid":"a-0","message":{"id":"asst-1","content":[{"type":"text","text":"Valid turn."}]}}
+{"type":"assistant","timestamp":"2026-04-28T10:00:02.000Z","uuid":"a-1","message":{"id":"asst-2","content":[{"type":"tool_use","id":"tu-1","name":"Edit","input":{"file_path":"/repo/a.ts","old_string":"a","new_string":"b"}}]}}
 {this is not valid json
-{"type":"assistant","timestamp":"2026-04-28T10:00:02.000Z","uuid":"msg-2","message":{"id":"asst-2","content":[{"type":"tool_use","id":"tu-2","name":"Write","input":{"file_path":"/repo/b.ts","content":"hello"}}]}}
+{"type":"user","timestamp":"2026-04-28T10:00:03.000Z","uuid":"u-1","message":{"content":"now do another thing"}}
+{"type":"assistant","timestamp":"2026-04-28T10:00:04.000Z","uuid":"a-2","message":{"id":"asst-3","content":[{"type":"tool_use","id":"tu-2","name":"Write","input":{"file_path":"/repo/b.ts","content":"hello"}}]}}
