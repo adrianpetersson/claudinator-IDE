@@ -41,7 +41,7 @@ import { formatTaskContextPrompt } from '../shared/taskContext';
 import { loadKeybindings, saveKeybindings, matchesBinding } from './keybindings';
 import type { KeyBindingMap } from './keybindings';
 import { sessionRegistry } from './terminal/SessionRegistry';
-import { playNotificationSound, playPeonSound } from './sounds';
+import { playNotificationSound } from './sounds';
 import type { NotificationSound } from './sounds';
 
 const GIT_POLL_INTERVAL = 5000;
@@ -392,15 +392,6 @@ export function App() {
     const MIN_BUSY_DURATION_MS = 3000;
 
     const unsubscribe = window.electronAPI.onPtyActivity((newActivity) => {
-      // Peon mode: detect idle→busy transitions (user submits query)
-      if (notificationSoundRef.current === 'peon') {
-        for (const [id, info] of Object.entries(newActivity)) {
-          if (prevState[id] === 'idle' && info.state === 'busy' && hasBeenIdle.has(id)) {
-            playPeonSound('yes');
-            break;
-          }
-        }
-      }
       // Detect any busy→idle transition (only for PTYs that completed a full work cycle)
       // Skip transitions from 'waiting' — those are not task completions
       // Skip brief busy flashes (< 3s) — these are startup artifacts, not real work
@@ -1100,10 +1091,6 @@ export function App() {
         await loadTasksForProject(targetProject.id);
         setActiveProjectId(targetProject.id);
         setActiveTaskId(taskId);
-
-        if (notificationSoundRef.current === 'peon') {
-          playPeonSound('what');
-        }
 
         window.electronAPI.worktreeEnsureReserve({
           projectId: targetProject.id,
