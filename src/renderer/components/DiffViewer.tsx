@@ -517,10 +517,8 @@ export function DiffViewer({ diff, loading, activeTaskId, onClose }: DiffViewerP
             <div className="inline-block min-w-full">
               {diff.hunks.map((hunk, hi) => (
                 <div key={hi}>
-                  {/* Hunk header */}
-                  <div className="diff-hunk px-5 py-1.5 text-[hsl(var(--git-renamed))]/70 border-y border-border/20 sticky top-0 backdrop-blur-sm text-[11px]">
-                    {hunk.header}
-                  </div>
+                  {/* Hunk separator — slim divider between hunks, none before the first */}
+                  {hi > 0 && <div className="h-px bg-border/40 my-2" aria-hidden />}
 
                   {/* Lines */}
                   {hunk.lines.map((line, li) => {
