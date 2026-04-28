@@ -59,7 +59,7 @@ export class TerminalSessionManager {
     this.themeId = opts.themeId ?? 'default';
 
     this.terminal = new Terminal({
-      scrollback: 100_000,
+      scrollback: 10_000,
       fontFamily:
         "'JetBrainsMono Nerd Font', 'JetBrainsMonoNL Nerd Font', 'JetBrains Mono', 'SF Mono', Menlo, monospace",
       fontSize: 13,
@@ -808,9 +808,9 @@ export class TerminalSessionManager {
     if (typeof performance !== 'undefined' && 'memory' in performance) {
       const mem = (performance as unknown as { memory: { usedJSHeapSize: number } }).memory;
       if (mem.usedJSHeapSize > MEMORY_LIMIT_BYTES) {
-        this.terminal.options.scrollback = 10_000;
+        this.terminal.options.scrollback = 1_000;
         this.terminal.clear();
-        this.terminal.options.scrollback = 100_000;
+        this.terminal.options.scrollback = 10_000;
       }
     }
   }
