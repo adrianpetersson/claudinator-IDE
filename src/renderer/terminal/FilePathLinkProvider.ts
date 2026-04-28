@@ -7,12 +7,16 @@ const EXTENSIONS =
 // Matches file paths with at least one `/`, a known extension, and optional :line:col
 // Uses negative lookbehind: path must NOT be preceded by a path character (word char, slash, etc.)
 // This handles Claude Code's TUI characters (⏺, ⎿, box-drawing) without needing to enumerate them.
-// Path segments allow (), so paths like `app/(tabs)/entrance/index.tsx` match.
+// A path segment is either bare word chars (`entrance`) or fully parenthesized
+// (`(tabs)`) — this allows route-group dirs like `app/(tabs)/index.tsx` while
+// still rejecting attached prefixes like `Update(app/...)` (the `Update` chunk
+// can't legally end the first segment because `Update(` isn't a valid segment).
+const SEG = `(?:[\\w.@-]+|\\([\\w.@-]+\\))`;
 const FILE_PATH_RE = new RegExp(
-  `(?:^|(?<![\\w.@/\\\\()-]))` + // boundary: not preceded by a path character
+  `(?:^|(?<![\\w.@/\\\\-]))` + // boundary: not preceded by a path character
     `(` +
     `(?:\\.{0,2}/)?` + // optional ./ or ../ or / prefix (bare relative paths also match)
-    `[\\w.@()-]+(?:/[\\w.@()-]+)+` + // at least one dir separator (avoids matching lone filenames)
+    `${SEG}(?:/${SEG})+` + // at least one dir separator (avoids matching lone filenames)
     `\\.(?:${EXTENSIONS})(?![\\w.])` + // require known extension (word boundary prevents .ts matching .tsx)
     `(?::(\\d+)(?::(\\d+))?)?)`, // optional :line:col
   'gi',
