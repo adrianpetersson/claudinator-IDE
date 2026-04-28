@@ -244,6 +244,16 @@ export class TerminalSessionManager {
       if (this.terminal.element && window.electronAPI.getPlatform() === 'win32') {
         this.terminal.element.style.paddingRight = '24px';
       }
+      // The scrollbar is hidden via CSS, so we shouldn't reserve any width
+      // for it when fitting. xterm's FitAddon falls back to a 15px default
+      // when its scrollbar measurement returns 0, which costs ~2 cols and
+      // leaves an empty right-hand gutter inside the TUI.
+      const core = (
+        this.terminal as unknown as { _core?: { viewport?: { scrollBarWidth: number } } }
+      )._core;
+      if (core?.viewport) {
+        core.viewport.scrollBarWidth = 0;
+      }
       // Load GPU addon after terminal is in DOM
       await this.loadGpuAddon();
       // After yielding, check if a newer attach() has started (React remount)
