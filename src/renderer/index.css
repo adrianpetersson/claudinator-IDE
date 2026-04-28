@@ -114,6 +114,10 @@
 
 /* ── Terminal ─────────────────────────────────────────────── */
 
+.terminal-container {
+  padding-bottom: 14px;
+}
+
 .terminal-container .xterm {
   height: 100%;
   padding-left: 12px;

@@ -45,10 +45,6 @@ interface SettingsModalProps {
   onNotificationSoundChange: (value: NotificationSound) => void;
   desktopNotification: boolean;
   onDesktopNotificationChange: (value: boolean) => void;
-  showRateLimits: boolean;
-  onShowRateLimitsChange: (value: boolean) => void;
-  showUsageInline: boolean;
-  onShowUsageInlineChange: (value: boolean) => void;
   showContextUsageOnTaskCards: boolean;
   onShowContextUsageOnTaskCardsChange: (value: boolean) => void;
   showActiveTasksSection: boolean;
@@ -248,20 +244,12 @@ function UsageSection({
   latestRateLimits,
   thresholds,
   onThresholdsChange,
-  showRateLimits,
-  onShowRateLimitsChange,
-  showUsageInline,
-  onShowUsageInlineChange,
   showContextUsageOnTaskCards,
   onShowContextUsageOnTaskCardsChange,
 }: {
   latestRateLimits?: RateLimits;
   thresholds: UsageThresholds;
   onThresholdsChange: (t: UsageThresholds) => void;
-  showRateLimits: boolean;
-  onShowRateLimitsChange: (value: boolean) => void;
-  showUsageInline: boolean;
-  onShowUsageInlineChange: (value: boolean) => void;
   showContextUsageOnTaskCards: boolean;
   onShowContextUsageOnTaskCardsChange: (value: boolean) => void;
 }) {
@@ -323,18 +311,6 @@ function UsageSection({
           className="rounded-xl border border-border/40 divide-y divide-border/20 overflow-hidden"
           style={{ background: 'hsl(var(--surface-2))' }}
         >
-          <ToggleRow
-            label="Show rate limits"
-            description="Display the 5-hour and 7-day account rate limit bars in the right sidebar."
-            enabled={showRateLimits}
-            onToggle={onShowRateLimitsChange}
-          />
-          <ToggleRow
-            label="Show context usage"
-            description="Display the current session's context window usage in the right sidebar."
-            enabled={showUsageInline}
-            onToggle={onShowUsageInlineChange}
-          />
           <ToggleRow
             label="Show progress bar on task cards"
             description="Adds a thin context usage bar under each task in the left sidebar."
@@ -591,10 +567,6 @@ export function SettingsModal({
   onNotificationSoundChange,
   desktopNotification,
   onDesktopNotificationChange,
-  showRateLimits,
-  onShowRateLimitsChange,
-  showUsageInline,
-  onShowUsageInlineChange,
   showContextUsageOnTaskCards,
   onShowContextUsageOnTaskCardsChange,
   showActiveTasksSection,
@@ -1143,10 +1115,6 @@ export function SettingsModal({
               latestRateLimits={latestRateLimits}
               thresholds={usageThresholds}
               onThresholdsChange={onUsageThresholdsChange}
-              showRateLimits={showRateLimits}
-              onShowRateLimitsChange={onShowRateLimitsChange}
-              showUsageInline={showUsageInline}
-              onShowUsageInlineChange={onShowUsageInlineChange}
               showContextUsageOnTaskCards={showContextUsageOnTaskCards}
               onShowContextUsageOnTaskCardsChange={onShowContextUsageOnTaskCardsChange}
             />
