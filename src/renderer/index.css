@@ -114,22 +114,21 @@
 
 /* ── Terminal ─────────────────────────────────────────────── */
 
-.terminal-container {
-  padding-bottom: 14px;
-}
-
 .terminal-container .xterm {
   height: 100%;
   padding-left: 12px;
+  padding-right: 12px;
   padding-top: 10px;
-  padding-bottom: 10px;
+  padding-bottom: 14px;
 }
 
-/* Inset left edge of absolutely-positioned children to match left padding. */
+/* Inset all edges of absolutely-positioned children to match padding. */
 .terminal-container .xterm .xterm-viewport,
 .terminal-container .xterm .xterm-screen {
   left: 12px !important;
+  right: 12px !important;
   top: 10px !important;
+  bottom: 14px !important;
 }
 
 /* Hide xterm scrollbar — Dash sets CLAUDE_CODE_NO_FLICKER=1 so Claude Code manages scrolling internally. */
