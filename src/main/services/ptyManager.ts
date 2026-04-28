@@ -9,6 +9,7 @@ import { hookServer } from './HookServer';
 import { contextUsageService } from './ContextUsageService';
 import { DatabaseService } from './DatabaseService';
 import { terminalSnapshotService } from './TerminalSnapshotService';
+import { findClaudeProjectDir, hasSessionForId, hasAnySessionForCwd } from './claudeSessionPaths';
 
 const execFileAsync = promisify(execFile);
 
@@ -29,51 +30,6 @@ function readUserStatusLineCommand(): string | null {
     // Best effort
   }
   return null;
-}
-
-/**
- * Locate the Claude projects directory for a given cwd.
- * Claude stores sessions under ~/.claude/projects/<encoded-cwd>/.
- */
-function findClaudeProjectDir(cwd: string): string | null {
-  try {
-    const projectsDir = path.join(os.homedir(), '.claude', 'projects');
-    if (!fs.existsSync(projectsDir)) return null;
-
-    // Path-based: slashes → hyphens (the primary naming scheme)
-    const pathBased = path.join(projectsDir, cwd.replace(/\//g, '-'));
-    if (fs.existsSync(pathBased)) return pathBased;
-
-    // Partial match: last 3 path segments
-    const parts = cwd.split('/').filter((p) => p.length > 0);
-    const suffix = parts.slice(-3).join('-');
-    const dirs = fs.readdirSync(projectsDir);
-    const match = dirs.find((d) => d.endsWith(suffix));
-    if (match) return path.join(projectsDir, match);
-
-    return null;
-  } catch (err) {
-    console.error('[findClaudeProjectDir] Failed to scan projects dir:', err);
-    return null;
-  }
-}
-
-/** Check whether Claude has a session file for the given UUID in this cwd. */
-function hasSessionForId(cwd: string, sessionId: string): boolean {
-  const projDir = findClaudeProjectDir(cwd);
-  if (!projDir) return false;
-  return fs.existsSync(path.join(projDir, `${sessionId}.jsonl`));
-}
-
-/** Check whether Claude has any jsonl history for this cwd. */
-function hasAnySessionForCwd(cwd: string): boolean {
-  const projDir = findClaudeProjectDir(cwd);
-  if (!projDir) return false;
-  try {
-    return fs.readdirSync(projDir).some((f) => f.endsWith('.jsonl'));
-  } catch {
-    return false;
-  }
 }
 
 interface PtyRecord {
