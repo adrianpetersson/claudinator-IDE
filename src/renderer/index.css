@@ -124,8 +124,8 @@
 /* Inset all edges of absolutely-positioned children to match padding. */
 .terminal-container .xterm .xterm-viewport,
 .terminal-container .xterm .xterm-screen {
-  left: 12px !important;
-  right: 12px !important;
+  left: 0 !important;
+  right: 0 !important;
   top: 10px !important;
   bottom: 14px !important;
 }

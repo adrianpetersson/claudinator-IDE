@@ -1255,7 +1255,7 @@ export function App() {
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden">
-      {window.electronAPI.getPlatform() === 'darwin' && (
+      {window.electronAPI.getPlatform() === 'darwin' && !showDiff && (
         <div
           className="titlebar-drag h-[38px] flex-shrink-0 border-b border-border/40"
           style={{ background: 'hsl(var(--surface-1))' }}
