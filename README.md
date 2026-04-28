@@ -1,6 +1,8 @@
-# Dash
+# Claudinator IDE
 
-Desktop app for running [Claude Code](https://docs.anthropic.com/en/docs/claude-code) across multiple projects and tasks, each in its own git worktree.
+A personal fork of [Dash](https://github.com/syv-ai/dash) — a desktop app for running [Claude Code](https://docs.anthropic.com/en/docs/claude-code) across multiple projects and tasks, each in its own git worktree.
+
+This fork tracks Dash upstream and adds personal tweaks (terminal styling, defaults, etc.). All credit for the underlying app goes to the [Dash team](https://github.com/syv-ai/dash).
 
 The main idea: you open a project, create tasks, and each task gets an isolated git worktree with its own branch. Claude Code runs in a real terminal (xterm.js + node-pty) inside each worktree, so you can have multiple tasks going in parallel without branch conflicts.
 
@@ -28,7 +30,7 @@ The main idea: you open a project, create tasks, and each task gets an isolated 
 
 ## Install
 
-Download the latest build from [Releases](https://github.com/syv-ai/dash/releases/latest). Open the `.dmg` and drag `Dash.app` to `/Applications`.
+This fork doesn't ship prebuilt releases — build from source (see Development setup below) or grab an upstream build from [Dash Releases](https://github.com/syv-ai/dash/releases/latest).
 
 ## Prerequisites
 
@@ -170,7 +172,7 @@ All keybindings are customizable in Settings > Keybindings.
 
 ## Acknowledgements
 
-Inspired by [emdash](https://github.com/generalaction/emdash).
+Forked from [Dash](https://github.com/syv-ai/dash) by the syv-ai team — all the heavy lifting is theirs. Dash itself is inspired by [emdash](https://github.com/generalaction/emdash).
 
 ## License
 
