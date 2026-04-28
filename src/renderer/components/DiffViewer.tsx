@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
-import { X, FileText, MessageSquare, Send } from 'lucide-react';
+import { ArrowLeft, FileText, MessageSquare, Send } from 'lucide-react';
 import type { DiffResult, DiffLine, DiffHunk } from '../../shared/types';
 import { sessionRegistry } from '../terminal/SessionRegistry';
 import { FileView } from './FileView';
@@ -417,6 +417,13 @@ export function DiffViewer({ diff, loading, activeTaskId, onClose }: DiffViewerP
         style={{ background: 'hsl(var(--surface-2))' }}
       >
         <div className="flex items-center gap-3 min-w-0">
+          <button
+            onClick={onClose}
+            title="Back to changes (Esc)"
+            className="p-1 -ml-1 rounded-md hover:bg-accent text-muted-foreground/70 hover:text-foreground transition-all duration-150 flex-shrink-0"
+          >
+            <ArrowLeft size={14} strokeWidth={1.8} />
+          </button>
           <FileText
             size={14}
             className="text-muted-foreground/50 flex-shrink-0"
@@ -447,12 +454,6 @@ export function DiffViewer({ diff, loading, activeTaskId, onClose }: DiffViewerP
               Add {comments.length} comment{comments.length !== 1 ? 's' : ''} to prompt
             </button>
           )}
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground/50 hover:text-foreground transition-all duration-150"
-          >
-            <X size={14} strokeWidth={2} />
-          </button>
         </div>
       </div>
 

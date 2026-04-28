@@ -1410,7 +1410,7 @@ export function App() {
           </ShellDrawerWrapper>
         </Panel>
 
-        {activeTask && (
+        {activeTask && !showDiff && (
           <>
             <PanelResizeHandle disabled={changesPanelCollapsed} className="w-[1px] bg-border/40" />
             <Panel
