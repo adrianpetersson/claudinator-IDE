@@ -1,8 +1,10 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { X, FileText, Send } from 'lucide-react';
-import type { DiffResult } from '../../../shared/types';
+import type { DiffResult, ReasoningTurn } from '../../../shared/types';
 import { DiffPane, type DiffPaneCommentState } from './DiffPane';
 import { MinimapRail } from './MinimapRail';
+import { ReasoningSidebar } from './ReasoningSidebar';
+import { mapHunksToTurns } from './hunkTurnMapping';
 
 interface DiffViewerProps {
   diff: DiffResult | null;
@@ -18,9 +20,57 @@ export function DiffViewer({ diff, loading, activeTaskId, onClose }: DiffViewerP
     addToPrompt: () => {},
   });
 
+  const [turns, setTurns] = useState<ReasoningTurn[]>([]);
+  const [reasoningLoading, setReasoningLoading] = useState(false);
+  const [activeTurnIndex, setActiveTurnIndex] = useState<number | null>(null);
+
   const handleCommentStateChange = useCallback((state: DiffPaneCommentState) => {
     setCommentState(state);
   }, []);
+
+  useEffect(() => {
+    if (!activeTaskId || !diff?.filePath) {
+      setTurns([]);
+      return;
+    }
+    let cancelled = false;
+    setReasoningLoading(true);
+    setActiveTurnIndex(null);
+    window.electronAPI
+      .getReasoningForFile({ taskId: activeTaskId, filePath: diff.filePath })
+      .then((res) => {
+        if (cancelled) return;
+        setTurns(res.success && res.data ? res.data : []);
+      })
+      .finally(() => {
+        if (!cancelled) setReasoningLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTaskId, diff?.filePath]);
+
+  const mapping = useMemo(() => mapHunksToTurns(diff?.hunks ?? [], turns), [diff?.hunks, turns]);
+  const mappedTurns = useMemo(
+    () => turns.filter((t) => !mapping.unmappedTurns.some((u) => u.turnIndex === t.turnIndex)),
+    [turns, mapping.unmappedTurns],
+  );
+  const highlightedHunkIndices = useMemo(() => {
+    if (activeTurnIndex == null) return [];
+    return mapping.hunkToTurns
+      .map((idxs, h) => (idxs.includes(activeTurnIndex) ? h : -1))
+      .filter((i) => i >= 0);
+  }, [activeTurnIndex, mapping.hunkToTurns]);
+
+  const handleHunkClick = useCallback(
+    (hunkIndex: number) => {
+      const idxs = mapping.hunkToTurns[hunkIndex];
+      if (idxs && idxs.length > 0) {
+        setActiveTurnIndex(idxs[idxs.length - 1]);
+      }
+    },
+    [mapping.hunkToTurns],
+  );
 
   function handleBackdropClick(e: React.MouseEvent) {
     if (e.target === e.currentTarget) onClose();
@@ -83,34 +133,48 @@ export function DiffViewer({ diff, loading, activeTaskId, onClose }: DiffViewerP
         </div>
 
         {/* Content */}
-        <div className="flex-1 relative overflow-hidden">
-          <div
-            ref={scrollContainerRef}
-            className="h-full overflow-auto font-mono text-[12px] leading-[20px] relative"
-          >
-            {loading && (
-              <div className="flex items-center justify-center h-full">
-                <div className="flex items-center gap-3">
-                  <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                  <span className="text-[13px] text-muted-foreground/50">Loading diff...</span>
+        <div className="flex-1 relative overflow-hidden flex">
+          <div className="flex-1 relative overflow-hidden">
+            <div
+              ref={scrollContainerRef}
+              className="h-full overflow-auto font-mono text-[12px] leading-[20px] relative"
+            >
+              {loading && (
+                <div className="flex items-center justify-center h-full">
+                  <div className="flex items-center gap-3">
+                    <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                    <span className="text-[13px] text-muted-foreground/50">Loading diff...</span>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {diff && (
-              <DiffPane
-                diff={diff}
-                activeTaskId={activeTaskId}
-                scrollContainerRef={scrollContainerRef}
-                onClose={onClose}
-                onCommentStateChange={handleCommentStateChange}
-              />
+              {diff && (
+                <DiffPane
+                  diff={diff}
+                  activeTaskId={activeTaskId}
+                  scrollContainerRef={scrollContainerRef}
+                  onClose={onClose}
+                  onCommentStateChange={handleCommentStateChange}
+                  highlightedHunkIndices={highlightedHunkIndices}
+                  onHunkClick={handleHunkClick}
+                />
+              )}
+            </div>
+
+            {/* Scrollbar change minimap */}
+            {diff && !diff.isBinary && (
+              <MinimapRail hunks={diff.hunks} scrollContainerRef={scrollContainerRef} />
             )}
           </div>
 
-          {/* Scrollbar change minimap */}
-          {diff && !diff.isBinary && (
-            <MinimapRail hunks={diff.hunks} scrollContainerRef={scrollContainerRef} />
+          {diff && (
+            <ReasoningSidebar
+              mappedTurns={mappedTurns}
+              unmappedTurns={mapping.unmappedTurns}
+              activeTurnIndex={activeTurnIndex}
+              onTurnClick={setActiveTurnIndex}
+              loading={reasoningLoading}
+            />
           )}
         </div>
       </div>
