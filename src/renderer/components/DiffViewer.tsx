@@ -668,7 +668,7 @@ export function DiffViewer({ diff, loading, activeTaskId, onClose }: DiffViewerP
           </div>
 
           {/* Scrollbar change minimap */}
-          {diff && !diff.isBinary && changeMarkers.length > 0 && (
+          {viewMode === 'diff' && diff && !diff.isBinary && changeMarkers.length > 0 && (
             <div
               className="absolute right-0 top-0 bottom-0 w-[8px] z-20 pointer-events-auto"
               onClick={(e) => {
