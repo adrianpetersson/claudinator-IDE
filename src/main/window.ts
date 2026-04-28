@@ -9,7 +9,7 @@ export function createWindow(): BrowserWindow {
     height: 900,
     minWidth: 1200,
     minHeight: 800,
-    title: 'Dash',
+    title: 'Claudinator',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

@@ -391,7 +391,7 @@ export function LeftSidebar({
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-3 pb-1">
         <span className="text-sm font-medium text-muted-foreground/50 select-none">
-          {showActiveTasksSection && rotationTasks.length > 0 ? 'Dash' : 'Projects'}
+          {showActiveTasksSection && rotationTasks.length > 0 ? 'Claudinator' : 'Projects'}
         </span>
         <div className="flex items-center gap-1">
           <IconButton onClick={onOpenFolder} title="Add project" className="titlebar-no-drag">

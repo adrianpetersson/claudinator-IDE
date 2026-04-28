@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 import { app } from 'electron';
 import * as path from 'path';
 
 // 1. Set app name BEFORE any app.getPath() calls
-app.setName('Dash');
+app.setName('Claudinator');
 
 // 2. Install path aliases for main process
 // @shared/* → dist/main/shared/*

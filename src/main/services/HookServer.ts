@@ -50,7 +50,7 @@ class HookServerImpl {
         }
       }
       const n = new Notification({
-        title: 'Dash',
+        title: 'Claudinator',
         body,
       });
       n.on('click', () => {

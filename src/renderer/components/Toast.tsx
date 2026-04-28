@@ -56,7 +56,9 @@ export function ToastContainer() {
         action: {
           label: 'Download manually',
           onClick: () => {
-            window.electronAPI.openExternal('https://github.com/syv-ai/dash/releases/latest');
+            window.electronAPI.openExternal(
+              'https://github.com/adrianpetersson/claudinator-IDE/releases/latest',
+            );
           },
         },
       });

@@ -165,7 +165,7 @@ export function MainContent({
           <div className="w-14 h-14 rounded-2xl bg-accent/60 flex items-center justify-center mx-auto mb-4">
             <FolderOpen size={22} className="text-muted-foreground/40" strokeWidth={1.5} />
           </div>
-          <h2 className="text-[15px] font-semibold text-foreground/80 mb-1.5">Dash</h2>
+          <h2 className="text-[15px] font-semibold text-foreground/80 mb-1.5">Claudinator</h2>
           <p className="text-[13px] text-muted-foreground/60">Open a folder to get started</p>
         </div>
       </div>

@@ -66,13 +66,13 @@ interface PtyRecord {
 
 const ptys = new Map<string, PtyRecord>();
 
-/** Tracks all settings.local.json paths Dash has written hooks to, for cleanup on exit. */
+/** Tracks all settings.local.json paths Claudinator has written hooks to, for cleanup on exit. */
 const writtenSettingsPaths = new Set<string>();
 
-const DASH_DEFAULT_ATTRIBUTION =
-  '\n\nCo-Authored-By: Claude <noreply@anthropic.com> via Dash <dash@syv.ai>';
+const CLAUDINATOR_DEFAULT_ATTRIBUTION =
+  '\n\nCo-Authored-By: Claude <noreply@anthropic.com> via Claudinator <noreply@github.com>';
 
-// Commit attribution setting: undefined = "default" (use Dash attribution),
+// Commit attribution setting: undefined = "default" (use Claudinator attribution),
 // '' = "none" (suppress attribution), any other string = custom text.
 let commitAttributionSetting: string | undefined = undefined;
 
@@ -221,7 +221,7 @@ function buildDirectEnv(isDark: boolean): Record<string, string> {
 
   const env: Record<string, string> = {
     ...base,
-    TERM_PROGRAM: 'dash',
+    TERM_PROGRAM: 'claudinator',
     HOME: os.homedir(),
     PATH: process.env.PATH || '',
     // Tell CLI apps about terminal background (rxvt convention)
@@ -288,7 +288,7 @@ function buildDirectEnv(isDark: boolean): Record<string, string> {
     }
   }
 
-  // Disable Claude Code's built-in viewport scrolling — Dash uses its own terminal viewport
+  // Disable Claude Code's built-in viewport scrolling — Claudinator uses its own terminal viewport
   env.CLAUDE_CODE_NO_FLICKER = '1';
 
   return env;
@@ -306,7 +306,7 @@ function getTaskContextPrompt(taskId: string): string | null {
 }
 
 /**
- * All hook event names that Dash writes to settings.local.json.
+ * All hook event names that Claudinator writes to settings.local.json.
  * Used by both writeHookSettings and cleanupHookSettings.
  */
 const DASH_HOOK_EVENTS = [
@@ -444,9 +444,11 @@ function writeHookSettings(cwd: string, ptyId: string): void {
       command: `curl -s --connect-timeout 2 -X POST -H "Content-Type: application/json" -d @- "${contextUrl}" >/dev/null 2>&1`,
     };
 
-    // Commit attribution: undefined = Dash default, '' = suppress, other = custom.
+    // Commit attribution: undefined = Claudinator default, '' = suppress, other = custom.
     const effectiveAttribution =
-      commitAttributionSetting === undefined ? DASH_DEFAULT_ATTRIBUTION : commitAttributionSetting;
+      commitAttributionSetting === undefined
+        ? CLAUDINATOR_DEFAULT_ATTRIBUTION
+        : commitAttributionSetting;
     merged.attribution = { commit: effectiveAttribution };
 
     fs.writeFileSync(settingsPath, JSON.stringify(merged, null, 2) + '\n');
@@ -460,7 +462,7 @@ function writeHookSettings(cwd: string, ptyId: string): void {
 }
 
 /**
- * Remove Dash-written hooks and attribution from all settings.local.json files
+ * Remove Claudinator-written hooks and attribution from all settings.local.json files
  * that were written during this session. Called on app quit to prevent stale hooks.
  */
 export function cleanupHookSettings(): void {
@@ -481,7 +483,7 @@ export function cleanupHookSettings(): void {
         }
       }
 
-      // Remove Dash statusLine and attribution
+      // Remove Claudinator statusLine and attribution
       delete raw.statusLine;
       delete raw.attribution;
 
@@ -672,7 +674,7 @@ const SHELL_ZLOGIN = `\
 `;
 
 const SHELL_PROMPT = `\
-# Dash badge-style prompt — uses ANSI 16 colors (themed by xterm.js)
+# Claudinator badge-style prompt — uses ANSI 16 colors (themed by xterm.js)
 autoload -Uz vcs_info add-zsh-hook
 
 # Prevent venv from prepending (name) to prompt

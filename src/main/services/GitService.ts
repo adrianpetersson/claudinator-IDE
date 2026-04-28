@@ -262,7 +262,7 @@ export class GitService {
       return [];
     }
 
-    // Filter out Dash-managed hook files (not user content).
+    // Filter out Claudinator-managed hook files (not user content).
     // Git may report individual files or the whole .claude/ directory
     // (when untracked with --untracked-files=normal).
     const dashManagedFiles = new Set([

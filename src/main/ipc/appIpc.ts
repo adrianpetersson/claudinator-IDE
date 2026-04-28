@@ -251,7 +251,7 @@ export function registerAppIpc(): void {
       if (opts.enabled) {
         try {
           const n = new Notification({
-            title: 'Dash',
+            title: 'Claudinator',
             body: 'Notifications enabled!',
           });
           n.show();

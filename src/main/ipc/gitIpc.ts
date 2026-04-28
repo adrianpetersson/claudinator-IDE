@@ -20,17 +20,17 @@ export function registerGitIpc(): void {
       const urlPath = url.replace(/\.git$/, '').replace(/\/$/, '');
       let repoName = urlPath.split('/').pop() || 'repo';
 
-      // Clone destination: ~/Dash/<repo-name>
-      const dashDir = join(homedir(), 'Dash');
-      if (!existsSync(dashDir)) {
-        mkdirSync(dashDir, { recursive: true });
+      // Clone destination: ~/Claudinator/<repo-name>
+      const claudinatorDir = join(homedir(), 'Claudinator');
+      if (!existsSync(claudinatorDir)) {
+        mkdirSync(claudinatorDir, { recursive: true });
       }
 
-      let targetDir = join(dashDir, repoName);
+      let targetDir = join(claudinatorDir, repoName);
       if (existsSync(targetDir)) {
         const suffix = randomBytes(2).toString('hex');
         repoName = `${repoName}-${suffix}`;
-        targetDir = join(dashDir, repoName);
+        targetDir = join(claudinatorDir, repoName);
       }
 
       await execFileAsync('git', ['clone', url, targetDir], {

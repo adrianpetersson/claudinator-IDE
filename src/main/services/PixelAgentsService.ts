@@ -8,7 +8,7 @@ import type { WebContents } from 'electron';
 import type { PixelAgentsConfig, PixelAgentsStatus, PixelAgentsOfficeStatus } from '@shared/types';
 import { ConnectionConfigService } from './ConnectionConfigService';
 
-// Config lives inside Electron's userData dir (~/Library/Application Support/Dash/)
+// Config lives inside Electron's userData dir (~/Library/Application Support/Claudinator/)
 // The watcher is spawned with --config pointing here, so no need for ~/.pixel-agents/
 function getConfigPath(): string {
   return join(app.getPath('userData'), 'pixel-agents.json');

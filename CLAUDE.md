@@ -1,8 +1,8 @@
 # CLAUDE.md
 
-## What is Dash
+## What is Claudinator
 
-Electron desktop app for running Claude Code across multiple projects, each task in its own git worktree. xterm.js + node-pty terminals, SQLite + Drizzle ORM, React 18 UI. macOS arm64, Linux x64.
+Electron desktop app for running Claude Code across multiple projects, each task in its own git worktree. xterm.js + node-pty terminals, SQLite + Drizzle ORM, React 18 UI. macOS arm64, Linux x64. Personal fork of [Dash](https://github.com/syv-ai/dash).
 
 ## Commands
 
@@ -49,8 +49,8 @@ Main process `entry.ts` rewrites at runtime: `@shared/*` → `dist/main/shared/*
 
 ## Data Storage
 
-- **DB**: `~/Library/Application Support/Dash/app.db` (macOS) · `~/.config/Dash/app.db` (Linux)
-- **Snapshots**: `~/Library/Application Support/Dash/terminal-snapshots/`
+- **DB**: `~/Library/Application Support/Claudinator/app.db` (macOS) · `~/.config/Claudinator/app.db` (Linux)
+- **Snapshots**: `~/Library/Application Support/Claudinator/terminal-snapshots/`
 - **Worktrees**: `{projectPath}/../worktrees/{task-slug}/`
 - **UI state**: localStorage (active project/task, theme, keybindings, panel states, notification prefs)
 

@@ -1,7 +1,7 @@
 {
-  "name": "dash",
+  "name": "claudinator",
   "version": "0.9.8",
-  "description": "Dash — Desktop app for Claude Code with git worktree management",
+  "description": "Claudinator — Desktop app for Claude Code with git worktree management",
   "main": "dist/main/main/entry.js",
   "author": "mhenrichsen <mads@syv.ai>, nthomsencph <nicolai@syv.ai>, FabianScott <fabian@syv.ai>",
   "license": "MIT",
@@ -23,8 +23,8 @@
     "prepare": "husky"
   },
   "build": {
-    "appId": "com.syv.dash",
-    "productName": "Dash",
+    "appId": "com.adrianpetersson.claudinator",
+    "productName": "Claudinator",
     "directories": {
       "output": "release"
     },
@@ -39,8 +39,8 @@
     "npmRebuild": false,
     "publish": {
       "provider": "github",
-      "owner": "syv-ai",
-      "repo": "dash",
+      "owner": "adrianpetersson",
+      "repo": "claudinator-IDE",
       "releaseType": "release"
     },
     "mac": {

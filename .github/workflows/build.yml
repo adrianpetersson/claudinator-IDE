@@ -104,7 +104,7 @@ jobs:
 
       - name: Verify code signature
         run: |
-          APP_PATH="release/mac-arm64/Dash.app"
+          APP_PATH="release/mac-arm64/Claudinator.app"
           echo "==> Verifying code signature..."
           codesign --verify --verbose=2 "$APP_PATH"
           echo "==> Checking notarization..."
@@ -113,7 +113,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v5
         with:
-          name: Dash-mac-arm64
+          name: Claudinator-mac-arm64
           path: |
             release/*.dmg
             release/*.zip
@@ -151,7 +151,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v5
         with:
-          name: Dash-linux-x64
+          name: Claudinator-linux-x64
           path: |
             release/*.AppImage
             release/*.yml
@@ -188,7 +188,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v5
         with:
-          name: Dash-windows-x64
+          name: Claudinator-windows-x64
           path: |
             release/*.exe
           if-no-files-found: error

@@ -38,8 +38,8 @@ import type {
 import { formatResetTime } from '../../shared/format';
 import { UsageBar } from './ui/UsageBar';
 
-const DASH_DEFAULT_ATTRIBUTION =
-  '\n\nCo-Authored-By: Claude <noreply@anthropic.com> via Dash <dash@syv.ai>';
+const CLAUDINATOR_DEFAULT_ATTRIBUTION =
+  '\n\nCo-Authored-By: Claude <noreply@anthropic.com> via Claudinator <noreply@github.com>';
 
 type SettingsTab =
   | 'general'
@@ -844,12 +844,12 @@ function ClaudeCodeTab({
         <ToggleSwitch
           enabled={syncShellEnv}
           onToggle={onSyncShellEnvChange}
-          label="Inherit environment from Dash process"
+          label="Inherit environment from Claudinator process"
         />
         <p className="text-[10px] text-foreground/80 mt-2">
           {syncShellEnv
-            ? 'Claude Code inherits all environment variables from the Dash process. Variables below override inherited values.'
-            : 'Dash uses a minimal, isolated environment. Only variables configured below are passed to Claude Code.'}
+            ? 'Claude Code inherits all environment variables from the Claudinator process. Variables below override inherited values.'
+            : 'Claudinator uses a minimal, isolated environment. Only variables configured below are passed to Claude Code.'}
         </p>
       </div>
 
@@ -1319,7 +1319,7 @@ export function SettingsModal({
 
                 {preferredIDE === 'custom' && (
                   <div className="mt-4 space-y-3 p-3 rounded-lg border border-border/40 bg-accent/20">
-                    <Tooltip content="Launch any editor Dash doesn't detect natively. Point at an executable and pass flags — use {path} to place the folder anywhere in the command, or it's appended at the end.">
+                    <Tooltip content="Launch any editor Claudinator doesn't detect natively. Point at an executable and pass flags — use {path} to place the folder anywhere in the command, or it's appended at the end.">
                       <div className="inline-flex items-center gap-1.5 cursor-help">
                         <span className="text-[11px] font-medium text-foreground">
                           Custom IDE command
@@ -1411,7 +1411,7 @@ export function SettingsModal({
                             onCommitAttributionChange(undefined);
                           } else {
                             onCommitAttributionChange(
-                              commitAttribution ?? DASH_DEFAULT_ATTRIBUTION,
+                              commitAttribution ?? CLAUDINATOR_DEFAULT_ATTRIBUTION,
                             );
                           }
                         }}
@@ -1429,7 +1429,7 @@ export function SettingsModal({
                 <textarea
                   value={
                     commitAttribution === undefined
-                      ? (claudeDefaultAttribution ?? DASH_DEFAULT_ATTRIBUTION)
+                      ? (claudeDefaultAttribution ?? CLAUDINATOR_DEFAULT_ATTRIBUTION)
                       : commitAttribution
                   }
                   onChange={(e) => onCommitAttributionChange(e.target.value)}
@@ -1442,8 +1442,8 @@ export function SettingsModal({
                   }`}
                 />
                 <p className="text-[10px] text-foreground/80 mt-2">
-                  Controls attribution appended to git commits by Claude. Default uses the Dash
-                  attribution. Clear the field to disable attribution.
+                  Controls attribution appended to git commits by Claude. Default uses the
+                  Claudinator attribution. Clear the field to disable attribution.
                 </p>
               </div>
 
@@ -1507,7 +1507,7 @@ export function SettingsModal({
                     <div className="flex-1 min-w-0">
                       <p className="text-[12px] text-foreground">Send anonymous usage data</p>
                       <p className="text-[11px] text-muted-foreground mt-0.5">
-                        Helps us understand how Dash is used so we can improve it.
+                        Helps us understand how Claudinator is used so we can improve it.
                       </p>
                       <p className="text-[11px] text-muted-foreground mt-1.5">
                         <span className="font-medium text-foreground/70">What we collect:</span> app

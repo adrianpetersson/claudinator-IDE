@@ -166,8 +166,8 @@ All keybindings are customizable in Settings > Keybindings.
 
 ## Data storage
 
-- **Database**: `~/Library/Application Support/Dash/app.db` (macOS)
-- **Terminal snapshots**: `~/Library/Application Support/Dash/terminal-snapshots/`
+- **Database**: `~/Library/Application Support/Claudinator/app.db` (macOS)
+- **Terminal snapshots**: `~/Library/Application Support/Claudinator/terminal-snapshots/`
 - **Worktrees**: `{project}/../worktrees/{task-slug}/`
 
 ## Acknowledgements
