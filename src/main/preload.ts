@@ -227,4 +227,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener('git:fileChanged', handler);
     };
   },
+
+  // Transcript reasoning
+  getReasoningForFile: (args: { taskId: string; filePath: string }) =>
+    ipcRenderer.invoke('transcript:getReasoningForFile', args),
 });

@@ -17,6 +17,7 @@ import type {
   RemoteControlState,
   PullRequestInfo,
   ActivityInfo,
+  ReasoningTurn,
 } from '../shared/types';
 
 export interface ElectronAPI {
@@ -245,6 +246,12 @@ export interface ElectronAPI {
   gitWatch: (args: { id: string; cwd: string }) => Promise<IpcResponse<void>>;
   gitUnwatch: (id: string) => Promise<IpcResponse<void>>;
   onGitFileChanged: (callback: (id: string) => void) => () => void;
+
+  // Transcript reasoning
+  getReasoningForFile: (args: {
+    taskId: string;
+    filePath: string;
+  }) => Promise<IpcResponse<ReasoningTurn[]>>;
 }
 
 declare global {
