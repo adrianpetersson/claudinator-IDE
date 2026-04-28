@@ -349,3 +349,16 @@ export interface RemoteControlState {
   url: string;
   active: boolean;
 }
+
+// ── File View Types ─────────────────────────────────────────
+
+export interface FileContent {
+  /** UTF-8 contents of the file. Empty string when `tooLarge` is true. */
+  content: string;
+  /** True when the file exceeds the size threshold; the renderer should show a placeholder. */
+  tooLarge: boolean;
+  /** File size in bytes. */
+  size: number;
+  /** Resolved absolute path (post-traversal-check). */
+  path: string;
+}

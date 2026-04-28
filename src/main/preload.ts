@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   }) => ipcRenderer.invoke('app:openInIDE', args),
   detectAvailableIDEs: () => ipcRenderer.invoke('app:detectAvailableIDEs'),
   pickExecutable: () => ipcRenderer.invoke('app:pickExecutable'),
+  readFile: (args: { taskId: string; filePath: string }) => ipcRenderer.invoke('fs:readFile', args),
 
   // Database - Projects
   getProjects: () => ipcRenderer.invoke('db:getProjects'),

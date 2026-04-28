@@ -17,6 +17,7 @@ import type {
   RemoteControlState,
   PullRequestInfo,
   ActivityInfo,
+  FileContent,
 } from '../shared/types';
 
 export interface ElectronAPI {
@@ -40,6 +41,7 @@ export interface ElectronAPI {
   }) => Promise<IpcResponse<null>>;
   detectAvailableIDEs: () => Promise<IpcResponse<Array<{ id: string; label: string }>>>;
   pickExecutable: () => Promise<IpcResponse<string | null>>;
+  readFile: (args: { taskId: string; filePath: string }) => Promise<IpcResponse<FileContent>>;
 
   // Database - Projects
   getProjects: () => Promise<IpcResponse<Project[]>>;

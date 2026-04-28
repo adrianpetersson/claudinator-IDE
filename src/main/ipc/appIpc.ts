@@ -2,8 +2,14 @@ import { ipcMain, dialog, app, shell, BrowserWindow, Notification } from 'electr
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { existsSync, readFileSync } from 'fs';
+import { readFile, stat } from 'fs/promises';
 import { homedir } from 'os';
-import { join, resolve } from 'path';
+import { join, resolve, relative, isAbsolute } from 'path';
+import { DatabaseService } from '../services/DatabaseService';
+
+// Files larger than this are returned with a "too large" hint so the renderer
+// can show a graceful message rather than freezing on a multi-MB file.
+const MAX_READ_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 const execFileAsync = promisify(execFile);
 
@@ -467,4 +473,43 @@ export function registerAppIpc(): void {
       }
     },
   );
+
+  // ── fs:readFile ─────────────────────────────────────────────
+  // Read a file scoped to a task's working directory. Path must resolve inside
+  // the task's `path`; absolute paths from the renderer are rejected unless
+  // they sit under that root. Used by the diff modal's "File" tab to render
+  // the post-edit file contents.
+  ipcMain.handle('fs:readFile', async (_event, args: { taskId: string; filePath: string }) => {
+    try {
+      const task = DatabaseService.getTask(args.taskId);
+      if (!task) return { success: false, error: 'Task not found' };
+
+      const root = resolve(task.path);
+      const requested = isAbsolute(args.filePath)
+        ? resolve(args.filePath)
+        : resolve(root, args.filePath);
+
+      const rel = relative(root, requested);
+      if (rel.startsWith('..') || isAbsolute(rel)) {
+        return { success: false, error: 'Path escapes task directory' };
+      }
+
+      const stats = await stat(requested);
+      if (!stats.isFile()) return { success: false, error: 'Not a regular file' };
+      if (stats.size > MAX_READ_FILE_BYTES) {
+        return {
+          success: true,
+          data: { content: '', tooLarge: true, size: stats.size, path: requested },
+        };
+      }
+
+      const content = await readFile(requested, 'utf-8');
+      return {
+        success: true,
+        data: { content, tooLarge: false, size: stats.size, path: requested },
+      };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  });
 }
