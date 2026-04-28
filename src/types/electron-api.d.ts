@@ -256,11 +256,6 @@ export interface ElectronAPI {
   pixelAgentsStop: () => Promise<IpcResponse<void>>;
   onPixelAgentsStatusChanged: (callback: (status: PixelAgentsStatus) => void) => () => void;
 
-  // Telemetry
-  telemetryCapture: (event: string, properties?: Record<string, unknown>) => Promise<void>;
-  telemetryGetStatus: () => Promise<IpcResponse<{ enabled: boolean; envDisabled: boolean }>>;
-  telemetrySetEnabled: (enabled: boolean) => Promise<IpcResponse<void>>;
-
   // Auto-update
   autoUpdateCheck: () => Promise<IpcResponse<void>>;
   autoUpdateDownload: () => Promise<IpcResponse<void>>;

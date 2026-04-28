@@ -13,7 +13,6 @@ import { terminalSnapshotService } from '../services/TerminalSnapshotService';
 import { activityMonitor } from '../services/ActivityMonitor';
 import { contextUsageService } from '../services/ContextUsageService';
 import { remoteControlService } from '../services/remoteControlService';
-import { TelemetryService } from '../services/TelemetryService';
 
 export function registerPtyIpc(): void {
   ipcMain.handle(
@@ -34,7 +33,6 @@ export function registerPtyIpc(): void {
           ...args,
           sender: event.sender,
         });
-        TelemetryService.capture('terminal_started', { source: 'direct' });
         return { success: true, data: result };
       } catch (error) {
         return { success: false, error: String(error) };

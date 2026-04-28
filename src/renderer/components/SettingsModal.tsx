@@ -1030,8 +1030,6 @@ export function SettingsModal({
     'idle' | 'checking' | 'available' | 'downloading' | 'ready'
   >('idle');
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
-  const [telemetryEnabled, setTelemetryEnabled] = useState(true);
-  const [telemetryEnvDisabled, setTelemetryEnvDisabled] = useState(false);
 
   useEffect(() => {
     const cleanups = [
@@ -1057,12 +1055,6 @@ export function SettingsModal({
       if (resp.success) setClaudeInfo(resp.data ?? null);
     });
     window.electronAPI.getAppVersion().then((v) => setAppVersion(v));
-    window.electronAPI.telemetryGetStatus().then((resp) => {
-      if (resp.success && resp.data) {
-        setTelemetryEnabled(resp.data.enabled);
-        setTelemetryEnvDisabled(resp.data.envDisabled);
-      }
-    });
     window.electronAPI.getClaudeAttribution(activeProjectPath).then((resp) => {
       if (resp.success && resp.data != null) {
         setClaudeDefaultAttribution(resp.data);
@@ -1494,64 +1486,6 @@ export function SettingsModal({
                           : 'Check for Updates'}
                     </button>
                   )}
-                </div>
-              </div>
-
-              {/* Privacy & Telemetry */}
-              <div>
-                <label className="block text-[12px] font-medium text-foreground mb-3">
-                  Privacy & Telemetry
-                </label>
-                <div className="space-y-2">
-                  <label className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/60 hover:bg-accent/30 transition-colors cursor-pointer">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[12px] text-foreground">Send anonymous usage data</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        Helps us understand how Claudinator is used so we can improve it.
-                      </p>
-                      <p className="text-[11px] text-muted-foreground mt-1.5">
-                        <span className="font-medium text-foreground/70">What we collect:</span> app
-                        start/close, session duration, daily active usage, project and task counts
-                        (created, deleted, archived), worktree and terminal usage, app version,
-                        platform, and architecture.
-                      </p>
-                      <p className="text-[11px] text-muted-foreground mt-1">
-                        <span className="font-medium text-foreground/70">
-                          What we never collect:
-                        </span>{' '}
-                        no code, file paths, prompts, IP addresses, device identifiers, MAC
-                        addresses, or any personal information.
-                      </p>
-                      {telemetryEnvDisabled && (
-                        <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
-                          <AlertCircle size={11} strokeWidth={2} />
-                          Disabled via TELEMETRY_ENABLED env var
-                        </p>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={telemetryEnabled && !telemetryEnvDisabled}
-                      disabled={telemetryEnvDisabled}
-                      onClick={() => {
-                        const next = !telemetryEnabled;
-                        setTelemetryEnabled(next);
-                        window.electronAPI.telemetrySetEnabled(next);
-                      }}
-                      className={`relative inline-flex h-[20px] w-[36px] shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
-                        telemetryEnabled && !telemetryEnvDisabled ? 'bg-primary' : 'bg-border/60'
-                      } ${telemetryEnvDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-[16px] w-[16px] rounded-full bg-white shadow-sm transform transition-transform duration-200 ${
-                          telemetryEnabled && !telemetryEnvDisabled
-                            ? 'translate-x-[16px]'
-                            : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </label>
                 </div>
               </div>
             </div>

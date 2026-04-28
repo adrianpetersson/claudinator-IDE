@@ -89,10 +89,6 @@ if (!gotLock) {
 let mainWindow: BrowserWindow | null = null;
 
 app.whenReady().then(async () => {
-  // Initialize telemetry (before anything else, never throws)
-  const { TelemetryService } = await import('./services/TelemetryService');
-  TelemetryService.initialize();
-
   // Initialize database
   const { DatabaseService } = await import('./services/DatabaseService');
   await DatabaseService.initialize();
@@ -287,14 +283,6 @@ app.on('before-quit', async () => {
   try {
     const { PixelAgentsService } = await import('./services/PixelAgentsService');
     PixelAgentsService.stop();
-  } catch {
-    // Best effort
-  }
-
-  // Flush telemetry
-  try {
-    const { TelemetryService } = await import('./services/TelemetryService');
-    await TelemetryService.shutdown();
   } catch {
     // Best effort
   }

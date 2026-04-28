@@ -242,12 +242,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     };
   },
 
-  // Telemetry
-  telemetryCapture: (event: string, properties?: Record<string, unknown>) =>
-    ipcRenderer.invoke('telemetry:capture', { event, properties }),
-  telemetryGetStatus: () => ipcRenderer.invoke('telemetry:getStatus'),
-  telemetrySetEnabled: (enabled: boolean) => ipcRenderer.invoke('telemetry:setEnabled', enabled),
-
   // Auto-update
   autoUpdateCheck: () => ipcRenderer.invoke('autoUpdate:check'),
   autoUpdateDownload: () => ipcRenderer.invoke('autoUpdate:download'),

@@ -1,7 +1,6 @@
 import { ipcMain } from 'electron';
 import { worktreeService } from '../services/WorktreeService';
 import { worktreePoolService } from '../services/WorktreePoolService';
-import { TelemetryService } from '../services/TelemetryService';
 
 export function registerWorktreeIpc(): void {
   ipcMain.handle(
@@ -24,7 +23,6 @@ export function registerWorktreeIpc(): void {
           linkedIssueNumbers: args.linkedIssueNumbers,
           pushRemote: args.pushRemote,
         });
-        TelemetryService.capture('worktree_created');
         return { success: true, data };
       } catch (error) {
         return { success: false, error: String(error) };
@@ -54,7 +52,6 @@ export function registerWorktreeIpc(): void {
           args.branch,
           args.options,
         );
-        TelemetryService.capture('worktree_removed');
         return { success: true };
       } catch (error) {
         return { success: false, error: String(error) };
