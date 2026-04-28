@@ -1263,91 +1263,95 @@ export function App() {
       )}
 
       <PanelGroup direction="horizontal" className="flex-1">
-        <Panel
-          ref={sidebarPanelRef}
-          className={sidebarAnimating ? 'panel-transition' : ''}
-          defaultSize={sidebarCollapsed ? 3 : 18}
-          minSize={12}
-          maxSize={28}
-          collapsible
-          collapsedSize={3}
-          onCollapse={() => {
-            setSidebarCollapsed(true);
-            localStorage.setItem('sidebarCollapsed', 'true');
-            setTimeout(() => setSidebarAnimating(false), 200);
-          }}
-          onExpand={() => {
-            setSidebarCollapsed(false);
-            localStorage.setItem('sidebarCollapsed', 'false');
-            setTimeout(() => setSidebarAnimating(false), 200);
-          }}
-        >
-          <ShellDrawerWrapper
-            enabled={shellDrawerEnabled && shellDrawerPosition === 'left' && !sidebarCollapsed}
-            taskId={activeTask?.id ?? null}
-            cwd={activeTask?.path ?? null}
-            collapsed={shellDrawerCollapsed}
-            label={activeTask?.useWorktree ? 'Worktree' : 'Terminal'}
-            panelRef={shellDrawerPanelRef}
-            animating={shellDrawerAnimating}
-            onAnimate={() => setShellDrawerAnimating(true)}
+        {!showDiff && (
+          <Panel
+            ref={sidebarPanelRef}
+            className={sidebarAnimating ? 'panel-transition' : ''}
+            defaultSize={sidebarCollapsed ? 3 : 18}
+            minSize={12}
+            maxSize={28}
+            collapsible
+            collapsedSize={3}
             onCollapse={() => {
-              setShellDrawerCollapsed(true);
-              localStorage.setItem('shellDrawerCollapsed', 'true');
-              setTimeout(() => setShellDrawerAnimating(false), 200);
+              setSidebarCollapsed(true);
+              localStorage.setItem('sidebarCollapsed', 'true');
+              setTimeout(() => setSidebarAnimating(false), 200);
             }}
             onExpand={() => {
-              setShellDrawerCollapsed(false);
-              localStorage.setItem('shellDrawerCollapsed', 'false');
-              setTimeout(() => setShellDrawerAnimating(false), 200);
+              setSidebarCollapsed(false);
+              localStorage.setItem('sidebarCollapsed', 'false');
+              setTimeout(() => setSidebarAnimating(false), 200);
             }}
           >
-            <LeftSidebar
-              projects={projects}
-              activeProjectId={activeProjectId}
-              onSelectProject={(id) => {
-                setActiveProjectId(id);
-                setActiveTaskId(null);
+            <ShellDrawerWrapper
+              enabled={shellDrawerEnabled && shellDrawerPosition === 'left' && !sidebarCollapsed}
+              taskId={activeTask?.id ?? null}
+              cwd={activeTask?.path ?? null}
+              collapsed={shellDrawerCollapsed}
+              label={activeTask?.useWorktree ? 'Worktree' : 'Terminal'}
+              panelRef={shellDrawerPanelRef}
+              animating={shellDrawerAnimating}
+              onAnimate={() => setShellDrawerAnimating(true)}
+              onCollapse={() => {
+                setShellDrawerCollapsed(true);
+                localStorage.setItem('shellDrawerCollapsed', 'true');
+                setTimeout(() => setShellDrawerAnimating(false), 200);
               }}
-              onOpenFolder={() => {
-                setCloneStatus({ loading: false, error: null });
-                setShowAddProjectModal(true);
+              onExpand={() => {
+                setShellDrawerCollapsed(false);
+                localStorage.setItem('shellDrawerCollapsed', 'false');
+                setTimeout(() => setShellDrawerAnimating(false), 200);
               }}
-              onDeleteProject={handleDeleteProject}
-              onProjectSettings={(id) => {
-                const p = projects.find((proj) => proj.id === id);
-                if (p) setProjectSettingsTarget(p);
-              }}
-              tasksByProject={tasksByProject}
-              activeTaskId={activeTaskId}
-              onSelectTask={handleSelectTask}
-              onNewTask={handleNewTask}
-              onDeleteTask={handleDeleteTask}
-              onArchiveTask={handleArchiveTask}
-              onRestoreTask={handleRestoreTask}
-              onOpenSettings={() => {
-                setSettingsInitialTab(undefined);
-                setShowSettings(true);
-              }}
-              onShowCommitGraph={(projectId) => {
-                setActiveProjectId(projectId);
-                setShowCommitGraph(true);
-              }}
-              collapsed={sidebarCollapsed}
-              onToggleCollapse={toggleSidebar}
-              taskActivity={taskActivity}
-              unseenTaskIds={unseenTaskIds}
-              remoteControlStates={remoteControlStates}
-              contextUsage={showContextUsageOnTaskCards ? contextUsage : EMPTY_CONTEXT_USAGE}
-              onReorderProjects={handleReorderProjects}
-              rotationTasks={rotationTasks}
-              onRemoveFromRotation={removeFromRotation}
-              showActiveTasksSection={showActiveTasksSection}
-              onToggleActiveTasksSection={() => setShowActiveTasksSection((v) => !v)}
-            />
-          </ShellDrawerWrapper>
-        </Panel>
-        <PanelResizeHandle disabled={sidebarCollapsed} className="w-[1px] bg-border/40" />
+            >
+              <LeftSidebar
+                projects={projects}
+                activeProjectId={activeProjectId}
+                onSelectProject={(id) => {
+                  setActiveProjectId(id);
+                  setActiveTaskId(null);
+                }}
+                onOpenFolder={() => {
+                  setCloneStatus({ loading: false, error: null });
+                  setShowAddProjectModal(true);
+                }}
+                onDeleteProject={handleDeleteProject}
+                onProjectSettings={(id) => {
+                  const p = projects.find((proj) => proj.id === id);
+                  if (p) setProjectSettingsTarget(p);
+                }}
+                tasksByProject={tasksByProject}
+                activeTaskId={activeTaskId}
+                onSelectTask={handleSelectTask}
+                onNewTask={handleNewTask}
+                onDeleteTask={handleDeleteTask}
+                onArchiveTask={handleArchiveTask}
+                onRestoreTask={handleRestoreTask}
+                onOpenSettings={() => {
+                  setSettingsInitialTab(undefined);
+                  setShowSettings(true);
+                }}
+                onShowCommitGraph={(projectId) => {
+                  setActiveProjectId(projectId);
+                  setShowCommitGraph(true);
+                }}
+                collapsed={sidebarCollapsed}
+                onToggleCollapse={toggleSidebar}
+                taskActivity={taskActivity}
+                unseenTaskIds={unseenTaskIds}
+                remoteControlStates={remoteControlStates}
+                contextUsage={showContextUsageOnTaskCards ? contextUsage : EMPTY_CONTEXT_USAGE}
+                onReorderProjects={handleReorderProjects}
+                rotationTasks={rotationTasks}
+                onRemoveFromRotation={removeFromRotation}
+                showActiveTasksSection={showActiveTasksSection}
+                onToggleActiveTasksSection={() => setShowActiveTasksSection((v) => !v)}
+              />
+            </ShellDrawerWrapper>
+          </Panel>
+        )}
+        {!showDiff && (
+          <PanelResizeHandle disabled={sidebarCollapsed} className="w-[1px] bg-border/40" />
+        )}
 
         <Panel
           className={sidebarAnimating || changesAnimating ? 'panel-transition' : ''}
