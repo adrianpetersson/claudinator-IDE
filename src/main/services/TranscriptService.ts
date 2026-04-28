@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { ReasoningTurn } from '../../shared/types';
 import { DatabaseService } from './DatabaseService';
-import { getSessionJsonlPath } from './claudeSessionPaths';
+import { getLatestSessionJsonlPath, getSessionJsonlPath } from './claudeSessionPaths';
 
 interface CachedParse {
   mtimeMs: number;
@@ -122,8 +122,12 @@ export class TranscriptService {
    */
   static getReasoningForFile(taskId: string, filePath: string): ReasoningTurn[] {
     const task = DatabaseService.getTask(taskId);
-    if (!task || !task.lastSessionId) return [];
-    const jsonlPath = getSessionJsonlPath(task.path, task.lastSessionId);
+    if (!task) return [];
+    // Prefer the captured lastSessionId; fall back to the most recently
+    // modified JSONL in the cwd when the SessionStart hook hasn't populated it.
+    const jsonlPath =
+      (task.lastSessionId && getSessionJsonlPath(task.path, task.lastSessionId)) ||
+      getLatestSessionJsonlPath(task.path);
     if (!jsonlPath) return [];
     // The diff passes repo-relative paths (e.g. "src/auth.ts"), but the JSONL
     // records absolute paths from Edit/Write tool calls. Resolve against the

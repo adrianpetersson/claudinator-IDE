@@ -54,3 +54,27 @@ export function getSessionJsonlPath(cwd: string, sessionId: string): string | nu
   const candidate = path.join(projDir, `${sessionId}.jsonl`);
   return fs.existsSync(candidate) ? candidate : null;
 }
+
+/**
+ * Return the absolute path to the most recently modified `.jsonl` in the cwd's
+ * Claude project dir, or null if there are none. Used as a fallback when a task
+ * doesn't have a captured `lastSessionId` yet (e.g. legacy tasks or sessions
+ * started before the SessionStart hook was wired up).
+ */
+export function getLatestSessionJsonlPath(cwd: string): string | null {
+  const projDir = findClaudeProjectDir(cwd);
+  if (!projDir) return null;
+  try {
+    const entries = fs
+      .readdirSync(projDir)
+      .filter((f) => f.endsWith('.jsonl'))
+      .map((f) => {
+        const full = path.join(projDir, f);
+        return { full, mtimeMs: fs.statSync(full).mtimeMs };
+      })
+      .sort((a, b) => b.mtimeMs - a.mtimeMs);
+    return entries[0]?.full ?? null;
+  } catch {
+    return null;
+  }
+}
