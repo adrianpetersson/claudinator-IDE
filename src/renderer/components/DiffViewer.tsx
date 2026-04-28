@@ -2,6 +2,7 @@ import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import { X, FileText, MessageSquare, Send } from 'lucide-react';
 import type { DiffResult, DiffLine, DiffHunk } from '../../shared/types';
 import { sessionRegistry } from '../terminal/SessionRegistry';
+import { FileView } from './FileView';
 
 // ── Internal Types ──────────────────────────────────────────
 
@@ -183,6 +184,7 @@ export function DiffViewer({ diff, loading, activeTaskId, onClose }: DiffViewerP
   const [selection, setSelection] = useState<SelectionState | null>(null);
   const [popover, setPopover] = useState<PopoverState | null>(null);
   const [popoverText, setPopoverText] = useState('');
+  const [viewMode, setViewMode] = useState<'diff' | 'file'>('diff');
   const contentRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -467,11 +469,42 @@ export function DiffViewer({ diff, loading, activeTaskId, onClose }: DiffViewerP
           </div>
         </div>
 
+        {/* Tab strip */}
+        <div
+          className="flex items-stretch h-9 border-b border-border/60 flex-shrink-0 px-2 gap-0.5"
+          style={{ background: 'hsl(var(--surface-1))' }}
+        >
+          {(['diff', 'file'] as const).map((mode) => {
+            const active = viewMode === mode;
+            return (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={[
+                  'px-3 text-[11px] font-medium relative transition-colors',
+                  active
+                    ? 'text-foreground'
+                    : 'text-muted-foreground/60 hover:text-muted-foreground',
+                ].join(' ')}
+              >
+                {mode === 'diff' ? 'Diff' : 'File'}
+                {active && (
+                  <span className="absolute left-2 right-2 bottom-0 h-[2px] bg-primary rounded-full" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Content */}
         <div className="flex-1 relative overflow-hidden">
+          {viewMode === 'file' && diff?.filePath && (
+            <FileView taskId={activeTaskId} filePath={diff.filePath} />
+          )}
           <div
             ref={contentRef}
             className="h-full overflow-auto font-mono text-[12px] leading-[20px] relative"
+            style={{ display: viewMode === 'diff' ? undefined : 'none' }}
           >
             {loading && (
               <div className="flex items-center justify-center h-full">
