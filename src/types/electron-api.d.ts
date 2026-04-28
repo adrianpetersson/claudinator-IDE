@@ -16,8 +16,6 @@ import type {
   StatusLineData,
   RemoteControlState,
   PullRequestInfo,
-  PixelAgentsConfig,
-  PixelAgentsStatus,
   ActivityInfo,
 } from '../shared/types';
 
@@ -247,31 +245,6 @@ export interface ElectronAPI {
   gitWatch: (args: { id: string; cwd: string }) => Promise<IpcResponse<void>>;
   gitUnwatch: (id: string) => Promise<IpcResponse<void>>;
   onGitFileChanged: (callback: (id: string) => void) => () => void;
-
-  // Pixel Agents
-  pixelAgentsGetConfig: () => Promise<IpcResponse<PixelAgentsConfig | null>>;
-  pixelAgentsSaveConfig: (config: PixelAgentsConfig) => Promise<IpcResponse<void>>;
-  pixelAgentsGetStatus: () => Promise<IpcResponse<PixelAgentsStatus>>;
-  pixelAgentsStart: () => Promise<IpcResponse<void>>;
-  pixelAgentsStop: () => Promise<IpcResponse<void>>;
-  onPixelAgentsStatusChanged: (callback: (status: PixelAgentsStatus) => void) => () => void;
-
-  // Auto-update
-  autoUpdateCheck: () => Promise<IpcResponse<void>>;
-  autoUpdateDownload: () => Promise<IpcResponse<void>>;
-  autoUpdateQuitAndInstall: () => Promise<IpcResponse<void>>;
-  onAutoUpdateAvailable: (callback: (info: { version: string }) => void) => () => void;
-  onAutoUpdateNotAvailable: (callback: () => void) => () => void;
-  onAutoUpdateDownloadProgress: (
-    callback: (progress: {
-      percent: number;
-      bytesPerSecond: number;
-      transferred: number;
-      total: number;
-    }) => void,
-  ) => () => void;
-  onAutoUpdateDownloaded: (callback: () => void) => () => void;
-  onAutoUpdateError: (callback: (info: { message: string; detail: string }) => void) => () => void;
 }
 
 declare global {

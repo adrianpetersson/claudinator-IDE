@@ -126,20 +126,6 @@ app.whenReady().then(async () => {
   const { contextUsageService } = await import('./services/ContextUsageService');
   contextUsageService.setSender(mainWindow.webContents);
 
-  // Initialize auto-updater (production only, disabled on Windows custom builds)
-  if (!process.argv.includes('--dev') && process.platform !== 'win32') {
-    const { AutoUpdateService } = await import('./services/AutoUpdateService');
-    AutoUpdateService.initialize(mainWindow);
-  }
-
-  // Start pixel-agents watcher if configured
-  const { PixelAgentsService } = await import('./services/PixelAgentsService');
-  PixelAgentsService.setSender(mainWindow.webContents);
-  const paConfig = PixelAgentsService.readConfig();
-  if (paConfig?.name && paConfig.offices.some((o) => o.enabled)) {
-    PixelAgentsService.start();
-  }
-
   // Cleanup orphaned reserve worktrees (background, non-blocking)
   setTimeout(async () => {
     try {
@@ -204,16 +190,8 @@ app.on('activate', async () => {
     activityMonitor.start(mainWindow.webContents);
     const { remoteControlService } = await import('./services/remoteControlService');
     remoteControlService.setSender(mainWindow.webContents);
-    const { PixelAgentsService } = await import('./services/PixelAgentsService');
-    PixelAgentsService.setSender(mainWindow.webContents);
     const { contextUsageService } = await import('./services/ContextUsageService');
     contextUsageService.setSender(mainWindow.webContents);
-
-    // Update auto-updater window reference
-    if (!process.argv.includes('--dev')) {
-      const { AutoUpdateService } = await import('./services/AutoUpdateService');
-      AutoUpdateService.setWindow(mainWindow);
-    }
   }
 });
 
@@ -227,14 +205,6 @@ app.on('before-quit', async () => {
     }
     // Give renderer a moment to save snapshots
     await new Promise((resolve) => setTimeout(resolve, 200));
-  } catch {
-    // Best effort
-  }
-
-  // Stop auto-updater
-  try {
-    const { AutoUpdateService } = await import('./services/AutoUpdateService');
-    AutoUpdateService.cleanup();
   } catch {
     // Best effort
   }
@@ -275,14 +245,6 @@ app.on('before-quit', async () => {
   try {
     const { stopAll } = await import('./services/FileWatcherService');
     stopAll();
-  } catch {
-    // Best effort
-  }
-
-  // Stop pixel-agents watcher
-  try {
-    const { PixelAgentsService } = await import('./services/PixelAgentsService');
-    PixelAgentsService.stop();
   } catch {
     // Best effort
   }

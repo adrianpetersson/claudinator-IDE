@@ -35,8 +35,6 @@ import type {
   RemoteControlState,
   UsageThresholds,
   ActivityInfo,
-  PixelAgentsConfig,
-  PixelAgentsStatus,
 } from '../shared/types';
 import type { CreateTaskOptions } from './components/TaskModal';
 import { formatTaskContextPrompt } from '../shared/taskContext';
@@ -171,26 +169,6 @@ export function App() {
       return {};
     }
   });
-  // Pixel Agents state
-  const [pixelAgentsConfig, setPixelAgentsConfig] = useState<PixelAgentsConfig | null>(null);
-  const [pixelAgentsStatus, setPixelAgentsStatus] = useState<PixelAgentsStatus>({
-    running: false,
-    offices: {},
-  });
-
-  // Load pixel agents config on mount + subscribe to status changes
-  useEffect(() => {
-    window.electronAPI.pixelAgentsGetConfig().then((resp) => {
-      if (resp.success && resp.data) setPixelAgentsConfig(resp.data);
-    });
-    window.electronAPI.pixelAgentsGetStatus().then((resp) => {
-      if (resp.success && resp.data) setPixelAgentsStatus(resp.data);
-    });
-    return window.electronAPI.onPixelAgentsStatusChanged((status) => {
-      setPixelAgentsStatus(status);
-    });
-  }, []);
-
   // Sync desktop notification settings to main process
   useEffect(() => {
     window.electronAPI.setDesktopNotification?.({
@@ -1381,10 +1359,6 @@ export function App() {
                 setSettingsInitialTab(undefined);
                 setShowSettings(true);
               }}
-              onOpenPixelAgents={() => {
-                setSettingsInitialTab('pixel-agents');
-                setShowSettings(true);
-              }}
               onShowCommitGraph={(projectId) => {
                 setActiveProjectId(projectId);
                 setShowCommitGraph(true);
@@ -1396,11 +1370,6 @@ export function App() {
               remoteControlStates={remoteControlStates}
               contextUsage={showContextUsageOnTaskCards ? contextUsage : EMPTY_CONTEXT_USAGE}
               onReorderProjects={handleReorderProjects}
-              pixelAgentsConnectedCount={
-                Object.values(pixelAgentsStatus.offices).filter(
-                  (s) => s === 'connected' || s === 'registered',
-                ).length
-              }
               rotationTasks={rotationTasks}
               onRemoveFromRotation={removeFromRotation}
               showActiveTasksSection={showActiveTasksSection}
@@ -1724,12 +1693,6 @@ export function App() {
             setKeybindings(b);
             saveKeybindings(b);
           }}
-          pixelAgentsConfig={pixelAgentsConfig}
-          onPixelAgentsConfigChange={(config) => {
-            setPixelAgentsConfig(config);
-            window.electronAPI.pixelAgentsSaveConfig(config);
-          }}
-          pixelAgentsStatus={pixelAgentsStatus}
           latestRateLimits={latestRateLimits}
           usageThresholds={usageThresholds}
           onUsageThresholdsChange={setUsageThresholds}

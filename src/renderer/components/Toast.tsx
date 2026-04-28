@@ -18,52 +18,5 @@ export function ToastContainer() {
     });
   }, []);
 
-  // Auto-update: update available
-  useEffect(() => {
-    return window.electronAPI.onAutoUpdateAvailable((info) => {
-      toast(`Update v${info.version} available`, {
-        duration: Infinity,
-        action: {
-          label: 'Download',
-          onClick: () => {
-            window.electronAPI.autoUpdateDownload();
-          },
-        },
-      });
-    });
-  }, []);
-
-  // Auto-update: download complete
-  useEffect(() => {
-    return window.electronAPI.onAutoUpdateDownloaded(() => {
-      toast('Update ready to install', {
-        duration: Infinity,
-        action: {
-          label: 'Restart',
-          onClick: () => {
-            window.electronAPI.autoUpdateQuitAndInstall();
-          },
-        },
-      });
-    });
-  }, []);
-
-  // Auto-update: error
-  useEffect(() => {
-    return window.electronAPI.onAutoUpdateError((info) => {
-      toast.error(`${info.message}. ${info.detail}`, {
-        duration: 10000,
-        action: {
-          label: 'Download manually',
-          onClick: () => {
-            window.electronAPI.openExternal(
-              'https://github.com/adrianpetersson/claudinator-IDE/releases/latest',
-            );
-          },
-        },
-      });
-    });
-  }, []);
-
   return <Toaster theme="system" position="bottom-right" />;
 }
