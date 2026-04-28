@@ -1,0 +1,133 @@
+import * as fs from 'fs';
+import type { ReasoningTurn } from '../../shared/types';
+import { DatabaseService } from './DatabaseService';
+import { getSessionJsonlPath } from './claudeSessionPaths';
+
+interface CachedParse {
+  mtimeMs: number;
+  turnsByFile: Map<string, ReasoningTurn[]>;
+}
+
+const cache = new Map<string, CachedParse>();
+
+interface AssistantContentBlock {
+  type: string;
+  text?: string;
+  id?: string;
+  name?: string;
+  input?: Record<string, unknown>;
+}
+
+interface AssistantLine {
+  type: 'assistant';
+  timestamp: string;
+  message: { id: string; content: AssistantContentBlock[] };
+}
+
+function isAssistantLine(parsed: unknown): parsed is AssistantLine {
+  if (!parsed || typeof parsed !== 'object') return false;
+  const obj = parsed as Record<string, unknown>;
+  if (obj.type !== 'assistant') return false;
+  const msg = obj.message as Record<string, unknown> | undefined;
+  return !!msg && Array.isArray(msg.content);
+}
+
+function extractNewStrings(toolName: string, input: Record<string, unknown>): string[] {
+  if (toolName === 'Edit' && typeof input.new_string === 'string') {
+    return [input.new_string];
+  }
+  if (toolName === 'Write' && typeof input.content === 'string') {
+    return [input.content];
+  }
+  if (toolName === 'MultiEdit' && Array.isArray(input.edits)) {
+    return (input.edits as Array<Record<string, unknown>>)
+      .map((e) => (typeof e.new_string === 'string' ? e.new_string : null))
+      .filter((s): s is string => s !== null);
+  }
+  return [];
+}
+
+function parseLines(lines: string[]): Map<string, ReasoningTurn[]> {
+  const byFile = new Map<string, ReasoningTurn[]>();
+  let assistantTurnIndex = 0;
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (!isAssistantLine(parsed)) continue;
+
+    assistantTurnIndex += 1;
+    const text = parsed.message.content
+      .filter((b) => b.type === 'text' && typeof b.text === 'string')
+      .map((b) => b.text as string)
+      .join('\n');
+    const timestamp = Date.parse(parsed.timestamp) || 0;
+
+    for (const block of parsed.message.content) {
+      if (block.type !== 'tool_use' || !block.name || !block.input) continue;
+      if (block.name !== 'Edit' && block.name !== 'Write' && block.name !== 'MultiEdit') {
+        continue;
+      }
+      const filePath = typeof block.input.file_path === 'string' ? block.input.file_path : null;
+      if (!filePath) continue;
+
+      const turn: ReasoningTurn = {
+        messageId: parsed.message.id,
+        toolUseId: block.id ?? '',
+        turnIndex: assistantTurnIndex,
+        toolName: block.name,
+        filePath,
+        reasoningText: text,
+        newStrings: extractNewStrings(block.name, block.input),
+        timestamp,
+      };
+      const list = byFile.get(filePath) ?? [];
+      list.push(turn);
+      byFile.set(filePath, list);
+    }
+  }
+  return byFile;
+}
+
+export class TranscriptService {
+  /**
+   * Parse a JSONL file and return reasoning turns that touched `filePath`.
+   * Memoized on (path, mtime).
+   */
+  static parseJsonl(jsonlPath: string, filePath: string): ReasoningTurn[] {
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(jsonlPath);
+    } catch {
+      return [];
+    }
+    let entry = cache.get(jsonlPath);
+    if (!entry || entry.mtimeMs !== stat.mtimeMs) {
+      const lines = fs.readFileSync(jsonlPath, 'utf-8').split('\n');
+      entry = { mtimeMs: stat.mtimeMs, turnsByFile: parseLines(lines) };
+      cache.set(jsonlPath, entry);
+    }
+    return entry.turnsByFile.get(filePath) ?? [];
+  }
+
+  /**
+   * Public API: given a taskId and a file path, return the reasoning turns.
+   * Looks up the task's cwd and lastSessionId via DatabaseService.
+   */
+  static getReasoningForFile(taskId: string, filePath: string): ReasoningTurn[] {
+    const task = DatabaseService.getTask(taskId);
+    if (!task || !task.lastSessionId) return [];
+    const jsonlPath = getSessionJsonlPath(task.path, task.lastSessionId);
+    if (!jsonlPath) return [];
+    return TranscriptService.parseJsonl(jsonlPath, filePath);
+  }
+
+  static __clearCacheForTests(): void {
+    cache.clear();
+  }
+}
