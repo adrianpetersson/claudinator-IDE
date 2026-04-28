@@ -413,7 +413,7 @@ export function DiffViewer({ diff, loading, activeTaskId, onClose }: DiffViewerP
     <div className="h-full w-full flex flex-col bg-card overflow-hidden border-l border-border/60">
       {/* Header */}
       <div
-        className="flex items-center justify-between px-5 h-12 border-b border-border/60 flex-shrink-0"
+        className="flex items-center justify-between px-4 h-10 border-b border-border/60 flex-shrink-0"
         style={{ background: 'hsl(var(--surface-2))' }}
       >
         <div className="flex items-center gap-3 min-w-0">
