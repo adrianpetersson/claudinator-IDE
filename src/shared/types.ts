@@ -349,3 +349,32 @@ export interface RemoteControlState {
   url: string;
   active: boolean;
 }
+
+// ── Reasoning Sidebar Types ─────────────────────────────────
+
+/**
+ * One agent turn that performed a tool call against a file in the user's task.
+ * Sourced from Claude Code's session transcript JSONL.
+ */
+export interface ReasoningTurn {
+  /** Stable id from the assistant message in the transcript. */
+  messageId: string;
+  /** Stable id of the tool_use block within that message. */
+  toolUseId: string;
+  /** 1-based index of the assistant turn in the conversation. */
+  turnIndex: number;
+  /** Edit | Write | MultiEdit. Other tools are filtered out at the service level. */
+  toolName: 'Edit' | 'Write' | 'MultiEdit';
+  /** Absolute file path the tool touched. */
+  filePath: string;
+  /** The agent's text content from the same assistant message — the "why". May be empty. */
+  reasoningText: string;
+  /**
+   * For Edit/MultiEdit: the new_string(s) the turn introduced. The renderer searches for
+   * these in the file's current content to compute a line range for highlight/scroll.
+   * For Write: a single entry containing the full new content.
+   */
+  newStrings: string[];
+  /** Unix ms timestamp from the transcript line, for ordering. */
+  timestamp: number;
+}
