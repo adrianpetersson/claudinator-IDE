@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as path from 'path';
 import type { ReasoningTurn } from '../../shared/types';
 import { DatabaseService } from './DatabaseService';
 import { getSessionJsonlPath } from './claudeSessionPaths';
@@ -124,7 +125,11 @@ export class TranscriptService {
     if (!task || !task.lastSessionId) return [];
     const jsonlPath = getSessionJsonlPath(task.path, task.lastSessionId);
     if (!jsonlPath) return [];
-    return TranscriptService.parseJsonl(jsonlPath, filePath);
+    // The diff passes repo-relative paths (e.g. "src/auth.ts"), but the JSONL
+    // records absolute paths from Edit/Write tool calls. Resolve against the
+    // task's cwd so the lookup key matches what was stored.
+    const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(task.path, filePath);
+    return TranscriptService.parseJsonl(jsonlPath, absolutePath);
   }
 
   static __clearCacheForTests(): void {
