@@ -74,6 +74,10 @@ function parseLines(lines: string[]): Map<string, ReasoningTurn[]> {
   let turnIndex = 0;
   let currentText = ''; // Preferred: visible text the agent told the user.
   let currentThinking = ''; // Fallback: extended-thinking content.
+  // Tool turns in the current logical turn that didn't have a preceding text
+  // or thinking block. When a later text/thinking block arrives in the same
+  // turn, fill these in — the agent often summarizes after acting.
+  let pending: ReasoningTurn[] = [];
 
   for (const line of lines) {
     if (!line.trim()) continue;
@@ -88,6 +92,7 @@ function parseLines(lines: string[]): Map<string, ReasoningTurn[]> {
       turnIndex += 1;
       currentText = '';
       currentThinking = '';
+      pending = [];
       continue;
     }
 
@@ -104,14 +109,20 @@ function parseLines(lines: string[]): Map<string, ReasoningTurn[]> {
     const timestamp = typeof obj.timestamp === 'string' ? Date.parse(obj.timestamp) || 0 : 0;
 
     for (const block of blocks) {
-      if (block.type === 'text' && typeof block.text === 'string') {
-        // Overwrite, not accumulate: the closest text to a tool_use is the
-        // most accurate reasoning for it.
+      if (block.type === 'text' && typeof block.text === 'string' && block.text) {
         currentText = block.text;
+        for (const t of pending) {
+          if (!t.reasoningText) t.reasoningText = block.text;
+        }
+        pending = pending.filter((t) => !t.reasoningText);
         continue;
       }
-      if (block.type === 'thinking' && typeof block.thinking === 'string') {
+      if (block.type === 'thinking' && typeof block.thinking === 'string' && block.thinking) {
         currentThinking = block.thinking;
+        for (const t of pending) {
+          if (!t.reasoningText) t.reasoningText = block.thinking;
+        }
+        pending = pending.filter((t) => !t.reasoningText);
         continue;
       }
       if (block.type !== 'tool_use' || !block.name || !block.input) continue;
@@ -136,6 +147,7 @@ function parseLines(lines: string[]): Map<string, ReasoningTurn[]> {
       const list = byFile.get(filePath) ?? [];
       list.push(turn);
       byFile.set(filePath, list);
+      if (!reasoningText) pending.push(turn);
     }
   }
   return byFile;

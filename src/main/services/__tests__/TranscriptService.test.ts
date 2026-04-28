@@ -33,6 +33,15 @@ describe('TranscriptService.parseJsonl', () => {
     expect(turns[1].reasoningText).toContain('Renaming handleScan');
   });
 
+  it('looks forward within the turn when a tool call has no preceding reasoning', () => {
+    const turns = TranscriptService.parseJsonl(
+      path.join(FIXTURES, 'transcript-after-text.jsonl'),
+      '/repo/a.ts',
+    );
+    expect(turns).toHaveLength(1);
+    expect(turns[0].reasoningText).toContain('Done — removed the comments');
+  });
+
   it('uses the most recent text block for each tool call (not accumulated)', () => {
     const turns = TranscriptService.parseJsonl(
       path.join(FIXTURES, 'transcript-basic.jsonl'),

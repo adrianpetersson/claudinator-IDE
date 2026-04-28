@@ -1,0 +1,4 @@
+{"type":"user","timestamp":"2026-04-28T10:00:00.000Z","uuid":"u-0","message":{"content":"remove the comments"}}
+{"type":"assistant","timestamp":"2026-04-28T10:00:01.000Z","uuid":"a-0","message":{"id":"asst-1","content":[{"type":"tool_use","id":"tu-1","name":"Edit","input":{"file_path":"/repo/a.ts","old_string":"// hi","new_string":""}}]}}
+{"type":"user","timestamp":"2026-04-28T10:00:02.000Z","uuid":"u-1","message":{"content":[{"type":"tool_result","tool_use_id":"tu-1","content":"ok"}]}}
+{"type":"assistant","timestamp":"2026-04-28T10:00:03.000Z","uuid":"a-1","message":{"id":"asst-2","content":[{"type":"text","text":"Done — removed the comments at the top of /repo/a.ts."}]}}
