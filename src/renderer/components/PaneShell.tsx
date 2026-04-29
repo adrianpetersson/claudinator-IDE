@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Terminal as TerminalIcon } from 'lucide-react';
+import { X, Terminal as TerminalIcon, Sparkles } from 'lucide-react';
 import { TerminalPane } from './TerminalPane';
 import type { Pane, Task } from '../../shared/types';
 
@@ -15,11 +15,10 @@ export interface PaneShellProps {
 }
 
 export function PaneShell({ pane, task, isFocused, canClose, onFocus, onClose }: PaneShellProps) {
-  const label = pane.kind === 'task' ? (task?.name ?? 'Task') : `scratch · ${basename(pane.cwd)}`;
-
-  const id = pane.kind === 'task' ? pane.taskId : pane.id;
-  const cwd = pane.kind === 'task' ? (task?.path ?? '') : pane.cwd;
-  const autoApprove = pane.kind === 'task' ? (task?.autoApprove ?? false) : false;
+  const isScratch = pane.kind === 'scratch';
+  const id = isScratch ? pane.id : pane.taskId;
+  const cwd = isScratch ? pane.cwd : (task?.path ?? '');
+  const autoApprove = isScratch ? false : (task?.autoApprove ?? false);
 
   return (
     <div
@@ -30,15 +29,35 @@ export function PaneShell({ pane, task, isFocused, canClose, onFocus, onClose }:
       onMouseDown={onFocus}
     >
       <div
-        className="flex items-center gap-2 px-3 h-8 flex-shrink-0 border-b border-border/60 text-[12px]"
-        style={{ background: 'hsl(var(--surface-1))' }}
+        className={[
+          'flex items-center gap-2 px-3 h-8 flex-shrink-0 border-b text-[12px]',
+          isScratch ? 'border-emerald-500/30' : 'border-border/60',
+        ].join(' ')}
+        style={{
+          background: isScratch
+            ? 'linear-gradient(to right, hsl(152 60% 35% / 0.18), hsl(var(--surface-1)) 30%)'
+            : 'hsl(var(--surface-1))',
+        }}
       >
-        <TerminalIcon
-          size={12}
-          strokeWidth={1.8}
-          className="text-muted-foreground/60 flex-shrink-0"
-        />
-        <span className="truncate flex-1 min-w-0 text-foreground/90">{label}</span>
+        {isScratch ? (
+          <Sparkles size={12} strokeWidth={1.8} className="text-emerald-400 flex-shrink-0" />
+        ) : (
+          <TerminalIcon
+            size={12}
+            strokeWidth={1.8}
+            className="text-muted-foreground/60 flex-shrink-0"
+          />
+        )}
+        <span className="truncate flex-1 min-w-0 text-foreground/90">
+          {isScratch ? (
+            <>
+              <span className="text-emerald-400 font-medium">scratch</span>
+              <span className="text-muted-foreground/60"> · {basename(pane.cwd)}</span>
+            </>
+          ) : (
+            (task?.name ?? 'Task')
+          )}
+        </span>
         {canClose && (
           <button
             type="button"
