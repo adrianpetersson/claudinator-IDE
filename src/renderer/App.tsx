@@ -357,6 +357,22 @@ export function App() {
     return null;
   })();
 
+  // displayTask: shown by side panels (changes, diff context). Falls back to
+  // the first task pane when the focused pane is a scratch pane, so the panel
+  // doesn't flash in/out as the user clicks between task and scratch panes.
+  const displayTask = useMemo(() => {
+    if (activeTask) return activeTask;
+    for (const pane of panes) {
+      if (pane.kind === 'task') {
+        for (const list of Object.values(tasksByProject)) {
+          const found = list.find((t) => t.id === pane.taskId);
+          if (found) return found;
+        }
+      }
+    }
+    return null;
+  }, [activeTask, panes, tasksByProject]);
+
   const taskById = useMemo<Record<string, Task>>(() => {
     const map: Record<string, Task> = {};
     for (const list of Object.values(tasksByProject)) {
@@ -604,17 +620,17 @@ export function App() {
       gitPollTimer.current = null;
     }
 
-    if (!activeTask) {
+    if (!displayTask) {
       setGitStatus(null);
       return;
     }
 
-    const taskCwd = activeTask.path;
+    const taskCwd = displayTask.path;
     refreshGitStatus(taskCwd);
 
-    window.electronAPI.gitWatch({ id: activeTask.id, cwd: taskCwd });
+    window.electronAPI.gitWatch({ id: displayTask.id, cwd: taskCwd });
     const unsubscribe = window.electronAPI.onGitFileChanged((id) => {
-      if (id === activeTask.id) {
+      if (id === displayTask.id) {
         refreshGitStatus(taskCwd);
       }
     });
@@ -625,7 +641,7 @@ export function App() {
 
     fileWatcherCleanup.current = () => {
       unsubscribe();
-      window.electronAPI.gitUnwatch(activeTask.id);
+      window.electronAPI.gitUnwatch(displayTask.id);
       if (gitPollTimer.current) {
         clearInterval(gitPollTimer.current);
         gitPollTimer.current = null;
@@ -638,7 +654,7 @@ export function App() {
         fileWatcherCleanup.current = null;
       }
     };
-  }, [activeTask?.id, activeTask?.path]);
+  }, [displayTask?.id, displayTask?.path]);
 
   const cycleTask = useCallback(
     (direction: 1 | -1) => {
@@ -1241,34 +1257,34 @@ export function App() {
   // ── Git Handlers ─────────────────────────────────────────
 
   async function handleStageFile(filePath: string) {
-    if (!activeTask) return;
-    await window.electronAPI.gitStageFile({ cwd: activeTask.path, filePath });
-    refreshGitStatus(activeTask.path);
+    if (!displayTask) return;
+    await window.electronAPI.gitStageFile({ cwd: displayTask.path, filePath });
+    refreshGitStatus(displayTask.path);
   }
 
   async function handleUnstageFile(filePath: string) {
-    if (!activeTask) return;
-    await window.electronAPI.gitUnstageFile({ cwd: activeTask.path, filePath });
-    refreshGitStatus(activeTask.path);
+    if (!displayTask) return;
+    await window.electronAPI.gitUnstageFile({ cwd: displayTask.path, filePath });
+    refreshGitStatus(displayTask.path);
   }
 
   async function handleStageAll() {
-    if (!activeTask) return;
-    await window.electronAPI.gitStageAll(activeTask.path);
-    refreshGitStatus(activeTask.path);
+    if (!displayTask) return;
+    await window.electronAPI.gitStageAll(displayTask.path);
+    refreshGitStatus(displayTask.path);
   }
 
   async function handleUnstageAll() {
-    if (!activeTask) return;
-    await window.electronAPI.gitUnstageAll(activeTask.path);
-    refreshGitStatus(activeTask.path);
+    if (!displayTask) return;
+    await window.electronAPI.gitUnstageAll(displayTask.path);
+    refreshGitStatus(displayTask.path);
   }
 
   async function handleCommit(message: string) {
-    if (!activeTask) return;
-    const res = await window.electronAPI.gitCommit({ cwd: activeTask.path, message });
+    if (!displayTask) return;
+    const res = await window.electronAPI.gitCommit({ cwd: displayTask.path, message });
     if (!res.success) throw new Error(res.error || 'Commit failed');
-    refreshGitStatus(activeTask.path);
+    refreshGitStatus(displayTask.path);
   }
 
   async function handlePush() {
@@ -1518,7 +1534,7 @@ export function App() {
           </ShellDrawerWrapper>
         </Panel>
 
-        {activeTask && !showDiff && (
+        {displayTask && !showDiff && (
           <>
             <PanelResizeHandle disabled={changesPanelCollapsed} className="w-[1px] bg-border/40" />
             <Panel
@@ -1545,8 +1561,8 @@ export function App() {
                   enabled={
                     shellDrawerEnabled && shellDrawerPosition === 'right' && !changesPanelCollapsed
                   }
-                  taskId={activeTask?.id ?? null}
-                  cwd={activeTask?.path ?? null}
+                  taskId={displayTask?.id ?? null}
+                  cwd={displayTask?.path ?? null}
                   collapsed={shellDrawerCollapsed}
                   panelRef={shellDrawerPanelRef}
                   animating={shellDrawerAnimating}
