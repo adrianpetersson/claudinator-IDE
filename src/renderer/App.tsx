@@ -65,10 +65,17 @@ export function App() {
   );
   const activeTaskId = derivedActiveTaskId(panes, focusedPaneIndex);
 
-  // Wrapper that keeps the existing call sites working. Either focus the
-  // pane that already shows this task, or replace the focused task pane.
-  // Never grows pane count. setActiveTaskId(null) is a no-op (panes always
-  // have at least one entry once initialized).
+  // Wrapper that keeps the existing call sites working. Either focus the pane
+  // that already shows this task, or replace an existing task pane in place.
+  // Never grows pane count beyond what's already there. setActiveTaskId(null)
+  // is a no-op (panes always have at least one entry once initialized).
+  //
+  // Resolution order when the requested task isn't already shown:
+  //   1. Replace the focused pane if it's a task pane.
+  //   2. Otherwise replace the first task pane in the list (so clicking a
+  //      task tab while focused on a scratch swaps the task pane in place
+  //      rather than appending a new pane).
+  //   3. Only when no task pane exists at all, append a new one.
   const setActiveTaskId = useCallback(
     (taskId: string | null) => {
       if (taskId === null) return;
@@ -82,6 +89,12 @@ export function App() {
         const focused = next[focusedPaneIndex];
         if (focused && focused.kind === 'task') {
           next[focusedPaneIndex] = { kind: 'task', taskId };
+          return next;
+        }
+        const firstTaskPaneIndex = next.findIndex((p) => p.kind === 'task');
+        if (firstTaskPaneIndex !== -1) {
+          next[firstTaskPaneIndex] = { kind: 'task', taskId };
+          setFocusedPaneIndex(firstTaskPaneIndex);
           return next;
         }
         next.push({ kind: 'task', taskId });
