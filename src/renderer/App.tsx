@@ -1272,12 +1272,11 @@ export function App() {
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden">
-      {window.electronAPI.getPlatform() === 'darwin' && !showDiff && (
-        <div
-          className="titlebar-drag h-[38px] flex-shrink-0 border-b border-border/40"
-          style={{ background: 'hsl(var(--surface-1))' }}
-        />
-      )}
+      {/* macOS traffic lights are positioned by titleBarStyle: 'hiddenInset'
+          and overlay the top-left ~80x30 area of the window. We don't reserve
+          a dedicated titlebar strip for them — content there just lives under
+          the buttons. The window stays draggable through the system-provided
+          drag region around the traffic lights. */}
 
       <PanelGroup direction="horizontal" className="flex-1">
         {!showDiff && (
