@@ -317,3 +317,18 @@ export interface FileContent {
   /** Resolved absolute path (post-traversal-check). */
   path: string;
 }
+
+// ── Terminal Panes ──────────────────────────────────────────
+
+/**
+ * One terminal pane in the multi-pane terminal area.
+ *
+ * `task` panes are bound to a task — they reuse the task's id as the PTY
+ * session id, run in the task's worktree, and surface in the file changes /
+ * diff UI as the focused task.
+ *
+ * `scratch` panes are ad-hoc Claude sessions detached from any task. They
+ * have a synthetic id (`scratch-${uuid}`) and a user-chosen cwd (defaults
+ * to ~/Documents). They never appear in the sidebar or DB.
+ */
+export type Pane = { kind: 'task'; taskId: string } | { kind: 'scratch'; id: string; cwd: string };
