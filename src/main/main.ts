@@ -80,9 +80,16 @@ function fixPath(): void {
 fixPath();
 
 // ── Single Instance Lock ──────────────────────────────────────
-const gotLock = app.requestSingleInstanceLock();
-if (!gotLock) {
-  app.quit();
+// In dev mode (launched with --dev) skip the lock so a development build can
+// run alongside the installed packaged app. Both write to the same user-data
+// dir, so don't keep them both running on real work — but for quick iteration
+// it's much nicer than having to quit the installed app every time.
+const isDev = process.argv.includes('--dev');
+if (!isDev) {
+  const gotLock = app.requestSingleInstanceLock();
+  if (!gotLock) {
+    app.quit();
+  }
 }
 
 // ── App Ready ─────────────────────────────────────────────────
