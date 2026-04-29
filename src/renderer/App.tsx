@@ -10,7 +10,6 @@ import { MainContent } from './components/MainContent';
 import { FileChangesPanel } from './components/FileChangesPanel';
 import { ShellDrawerWrapper } from './components/ShellDrawerWrapper';
 import { DiffViewer } from './components/DiffViewer';
-import { CommitGraphModal } from './components/CommitGraph/CommitGraphModal';
 import { TaskModal } from './components/TaskModal';
 import { AddProjectModal } from './components/AddProjectModal';
 import { DeleteTaskModal } from './components/DeleteTaskModal';
@@ -294,7 +293,6 @@ export function App() {
   const [diffResult, setDiffResult] = useState<DiffResult | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
-  const [showCommitGraph, setShowCommitGraph] = useState(false);
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     return localStorage.getItem('sidebarCollapsed') === 'true';
@@ -637,10 +635,6 @@ export function App() {
         e.preventDefault();
         handleUnstageAll();
       }
-      if (keybindings.commitGraph && matchesBinding(e, keybindings.commitGraph)) {
-        e.preventDefault();
-        setShowCommitGraph((v) => !v);
-      }
       // Navigation
       if (keybindings.openSettings && matchesBinding(e, keybindings.openSettings)) {
         e.preventDefault();
@@ -665,9 +659,6 @@ export function App() {
           e.preventDefault();
           setShowDiff(false);
           setDiffResult(null);
-        } else if (showCommitGraph) {
-          e.preventDefault();
-          setShowCommitGraph(false);
         } else if (showSettings) {
           e.preventDefault();
           setShowSettings(false);
@@ -722,7 +713,6 @@ export function App() {
     deleteTaskTarget,
     deleteProjectTarget,
     showDiff,
-    showCommitGraph,
     showSettings,
     showTaskModal,
     showAddProjectModal,
@@ -1347,10 +1337,6 @@ export function App() {
                   setSettingsInitialTab(undefined);
                   setShowSettings(true);
                 }}
-                onShowCommitGraph={(projectId) => {
-                  setActiveProjectId(projectId);
-                  setShowCommitGraph(true);
-                }}
                 collapsed={sidebarCollapsed}
                 onToggleCollapse={toggleSidebar}
                 taskActivity={taskActivity}
@@ -1408,12 +1394,6 @@ export function App() {
               onNewTask={() => activeProjectId && handleNewTask(activeProjectId)}
               onProjectSettings={() => {
                 if (activeProject) setProjectSettingsTarget(activeProject);
-              }}
-              onShowCommitGraph={() => {
-                if (activeProjectId) {
-                  setActiveProjectId(activeProjectId);
-                  setShowCommitGraph(true);
-                }
               }}
               onDeleteProject={() => {
                 if (activeProject) handleDeleteProject(activeProject.id);
@@ -1488,7 +1468,6 @@ export function App() {
                     onPush={handlePush}
                     collapsed={changesPanelCollapsed}
                     onToggleCollapse={toggleChangesPanel}
-                    onShowCommitGraph={() => setShowCommitGraph(true)}
                   />
                 </ShellDrawerWrapper>
               </div>
@@ -1716,26 +1695,6 @@ export function App() {
           ptyId={remoteControlModalPtyId}
           state={remoteControlStates[remoteControlModalPtyId] ?? null}
           onClose={() => setRemoteControlModalPtyId(null)}
-        />
-      )}
-
-      {showCommitGraph && activeProject && (
-        <CommitGraphModal
-          projectPath={activeProject.path}
-          projectName={activeProject.name}
-          gitRemote={activeProject.gitRemote}
-          taskBranches={
-            new Map(
-              (tasksByProject[activeProject.id] || [])
-                .filter((t) => !t.archivedAt && t.branch)
-                .map((t) => [t.branch, { id: t.id, name: t.name, useWorktree: t.useWorktree }]),
-            )
-          }
-          onClose={() => setShowCommitGraph(false)}
-          onSelectTask={(taskId) => {
-            setActiveTaskId(taskId);
-            setShowCommitGraph(false);
-          }}
         />
       )}
 

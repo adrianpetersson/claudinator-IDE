@@ -82,7 +82,6 @@ interface MainContentProps {
   onEnableRemoteControl?: (taskId: string) => void;
   onNewTask?: () => void;
   onProjectSettings?: () => void;
-  onShowCommitGraph?: () => void;
   onDeleteProject?: () => void;
   archivedTasks?: Task[];
   onDeleteTask?: (id: string) => void;
@@ -104,7 +103,6 @@ export function MainContent({
   onEnableRemoteControl,
   onNewTask,
   onProjectSettings,
-  onShowCommitGraph,
   onDeleteProject,
   archivedTasks = [],
   onDeleteTask,
@@ -182,7 +180,6 @@ export function MainContent({
         onSelectTask={(id) => onSelectTask?.(id)}
         onNewTask={() => onNewTask?.()}
         onProjectSettings={() => onProjectSettings?.()}
-        onShowCommitGraph={() => onShowCommitGraph?.()}
         onDeleteProject={() => onDeleteProject?.()}
         onDeleteTask={(id) => onDeleteTask?.(id)}
         onArchiveTask={(id) => onArchiveTask?.(id)}

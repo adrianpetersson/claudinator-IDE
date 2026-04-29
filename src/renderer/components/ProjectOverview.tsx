@@ -5,7 +5,6 @@ import {
   Plus,
   FolderOpen,
   Settings,
-  GitGraph,
   Trash2,
   Globe,
   GitFork,
@@ -27,7 +26,6 @@ interface ProjectOverviewProps {
   onSelectTask: (id: string) => void;
   onNewTask: () => void;
   onProjectSettings: () => void;
-  onShowCommitGraph: () => void;
   onDeleteProject: () => void;
   onDeleteTask: (id: string) => void;
   onArchiveTask: (id: string) => void;
@@ -103,7 +101,6 @@ export function ProjectOverview({
   onSelectTask,
   onNewTask,
   onProjectSettings,
-  onShowCommitGraph,
   onDeleteProject,
   onDeleteTask,
   onArchiveTask,
@@ -164,9 +161,6 @@ export function ProjectOverview({
 
             {/* Actions */}
             <div className="flex items-center gap-1 flex-shrink-0 ml-4">
-              <IconButton onClick={onShowCommitGraph} title="Commit graph">
-                <GitGraph size={15} strokeWidth={1.8} />
-              </IconButton>
               <IconButton onClick={onProjectSettings} title="Project settings">
                 <Settings size={15} strokeWidth={1.8} />
               </IconButton>

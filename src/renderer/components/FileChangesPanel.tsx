@@ -16,7 +16,6 @@ import {
   Upload,
   PanelRightOpen,
   PanelRightClose,
-  GitBranch,
 } from 'lucide-react';
 import type { FileChange, FileChangeStatus, GitStatus } from '../../shared/types';
 
@@ -33,7 +32,6 @@ interface FileChangesPanelProps {
   onPush: () => Promise<void>;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
-  onShowCommitGraph?: () => void;
 }
 
 const STATUS_COLORS: Record<FileChangeStatus, string> = {
@@ -183,7 +181,6 @@ export function FileChangesPanel({
   onPush,
   collapsed,
   onToggleCollapse,
-  onShowCommitGraph,
 }: FileChangesPanelProps) {
   const [commitMsg, setCommitMsg] = useState('');
   const [committing, setCommitting] = useState(false);
@@ -312,16 +309,6 @@ export function FileChangesPanel({
           )}
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
-          {onShowCommitGraph && (
-            <Tooltip content="Commit graph">
-              <button
-                onClick={onShowCommitGraph}
-                className="p-[3px] rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <GitBranch size={11} strokeWidth={2} />
-              </button>
-            </Tooltip>
-          )}
           {gitStatus.branch && (gitStatus.ahead > 0 || gitStatus.behind > 0) && (
             <div className="flex items-center gap-1 text-muted-foreground/40 mr-1">
               {gitStatus.ahead > 0 && (

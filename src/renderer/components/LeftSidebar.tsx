@@ -8,7 +8,6 @@ import {
   ArchiveRestore,
   Settings,
   GitBranch,
-  GitGraph,
   Globe,
   ChevronRight,
   ChevronDown,
@@ -183,7 +182,6 @@ interface LeftSidebarProps {
   onArchiveTask: (id: string) => void;
   onRestoreTask: (id: string) => void;
   onOpenSettings: () => void;
-  onShowCommitGraph: (projectId: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
   taskActivity: Record<string, ActivityInfo>;
@@ -212,7 +210,6 @@ export function LeftSidebar({
   onArchiveTask,
   onRestoreTask,
   onOpenSettings,
-  onShowCommitGraph,
   collapsed,
   onToggleCollapse,
   taskActivity,
@@ -513,16 +510,6 @@ export function LeftSidebar({
                       size="sm"
                     >
                       <Plus size={13} strokeWidth={2} />
-                    </IconButton>
-                    <IconButton
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onShowCommitGraph(project.id);
-                      }}
-                      title="Commit graph"
-                      size="sm"
-                    >
-                      <GitGraph size={13} strokeWidth={2} />
                     </IconButton>
                     <IconButton
                       onClick={(e) => {

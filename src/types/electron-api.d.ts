@@ -11,8 +11,6 @@ import type {
   GithubIssue,
   AzureDevOpsWorkItem,
   AzureDevOpsConfig,
-  CommitGraphData,
-  CommitDetail,
   StatusLineData,
   RemoteControlState,
   PullRequestInfo,
@@ -231,14 +229,6 @@ export interface ElectronAPI {
   gitCommit: (args: { cwd: string; message: string }) => Promise<IpcResponse<void>>;
   gitPush: (cwd: string) => Promise<IpcResponse<void>>;
   gitRemoteBranchExists: (args: { cwd: string; branch: string }) => Promise<IpcResponse<boolean>>;
-
-  // Commit graph
-  gitGetCommitGraph: (args: {
-    cwd: string;
-    limit?: number;
-    skip?: number;
-  }) => Promise<IpcResponse<CommitGraphData>>;
-  gitGetCommitDetail: (args: { cwd: string; hash: string }) => Promise<IpcResponse<CommitDetail>>;
 
   // Branch listing
   gitListBranches: (cwd: string) => Promise<IpcResponse<BranchInfo[]>>;
