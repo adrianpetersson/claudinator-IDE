@@ -13,25 +13,6 @@ import { terminalSnapshotService } from './TerminalSnapshotService';
 const execFileAsync = promisify(execFile);
 
 /**
- * Read the user's globally-configured Claude Code statusLine command, if any.
- * Returned so we can wrap (not replace) it in settings.local.json.
- */
-function readUserStatusLineCommand(): string | null {
-  try {
-    const globalPath = path.join(os.homedir(), '.claude', 'settings.json');
-    if (!fs.existsSync(globalPath)) return null;
-    const raw = JSON.parse(fs.readFileSync(globalPath, 'utf-8'));
-    const sl = raw?.statusLine;
-    if (sl?.type === 'command' && typeof sl.command === 'string' && sl.command.trim()) {
-      return sl.command;
-    }
-  } catch {
-    // Best effort
-  }
-  return null;
-}
-
-/**
  * Locate the Claude projects directory for a given cwd.
  * Claude stores sessions under ~/.claude/projects/<encoded-cwd>/.
  */
@@ -456,17 +437,23 @@ function writeHookSettings(cwd: string, ptyId: string): void {
       },
     };
 
-    // statusLine: pipe JSON to the hook server for context capture, AND run the
-    // user's globally-configured statusLine command so its output renders in the
-    // terminal. tee duplicates stdin: one copy → curl (silenced), other → user cmd.
+    // statusLine: pipe JSON to the hook server for context capture, AND print
+    // a minimal status line so the terminal isn't crowded by a verbose user
+    // command (which often wraps to multiple rows in narrow side-by-side panes).
+    // The user's global statusLine still runs in Ghostty / external terminals
+    // — we only override here, inside Claudinator-managed sessions.
     const contextUrl = `${base}/hook/context?ptyId=${ptyId}`;
     const dashCurl = `curl -s --connect-timeout 2 -X POST -H "Content-Type: application/json" -d @- "${contextUrl}" >/dev/null 2>&1`;
-    const userStatusLine = readUserStatusLineCommand();
+    // Python is always present on macOS / most Linux distros; jq isn't. Reads
+    // Claude Code's statusLine JSON from stdin and prints e.g. "Opus 4.7 · bdp-mobile".
+    const minimalStatusLine = `python3 -c "import json,sys,os
+d=json.load(sys.stdin)
+m=d.get('model',{}).get('display_name','Claude').replace('Claude ','')
+c=os.path.basename(d.get('workspace',{}).get('current_dir',''))
+print(m + (' · ' + c if c else ''))"`;
     merged.statusLine = {
       type: 'command',
-      command: userStatusLine
-        ? `bash -c 'tee >(${dashCurl}) | { ${userStatusLine.replace(/'/g, "'\\''")} ; }'`
-        : dashCurl,
+      command: `bash -c 'tee >(${dashCurl}) | { ${minimalStatusLine.replace(/'/g, "'\\''")} ; }'`,
     };
 
     // Commit attribution: undefined = Claudinator default, '' = suppress, other = custom.
