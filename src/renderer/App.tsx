@@ -33,7 +33,15 @@ import type {
   RemoteControlState,
   UsageThresholds,
   ActivityInfo,
+  Pane,
 } from '../shared/types';
+import {
+  derivedActiveTaskId,
+  generateScratchId,
+  loadPanesFromStorage,
+  savePanesToStorage,
+  defaultScratchCwd,
+} from './panes/derived';
 import type { CreateTaskOptions } from './components/TaskModal';
 import { formatTaskContextPrompt } from '../shared/taskContext';
 import { loadKeybindings, saveKeybindings, matchesBinding } from './keybindings';
@@ -51,8 +59,37 @@ export function App() {
     localStorage.getItem('activeProjectId'),
   );
   const [tasksByProject, setTasksByProject] = useState<Record<string, Task[]>>({});
-  const [activeTaskId, setActiveTaskId] = useState<string | null>(() =>
-    localStorage.getItem('activeTaskId'),
+  const [panes, setPanes] = useState<Pane[]>(() => loadPanesFromStorage().panes);
+  const [focusedPaneIndex, setFocusedPaneIndex] = useState<number>(
+    () => loadPanesFromStorage().focusedIndex,
+  );
+  const activeTaskId = derivedActiveTaskId(panes, focusedPaneIndex);
+
+  // Wrapper that keeps the existing call sites working. Either focus the
+  // pane that already shows this task, or replace the focused task pane.
+  // Never grows pane count. setActiveTaskId(null) is a no-op (panes always
+  // have at least one entry once initialized).
+  const setActiveTaskId = useCallback(
+    (taskId: string | null) => {
+      if (taskId === null) return;
+      setPanes((prev) => {
+        const existing = prev.findIndex((p) => p.kind === 'task' && p.taskId === taskId);
+        if (existing !== -1) {
+          setFocusedPaneIndex(existing);
+          return prev;
+        }
+        const next = [...prev];
+        const focused = next[focusedPaneIndex];
+        if (focused && focused.kind === 'task') {
+          next[focusedPaneIndex] = { kind: 'task', taskId };
+          return next;
+        }
+        next.push({ kind: 'task', taskId });
+        setFocusedPaneIndex(next.length - 1);
+        return next;
+      });
+    },
+    [focusedPaneIndex],
   );
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
@@ -320,6 +357,14 @@ export function App() {
     return null;
   })();
 
+  const taskById = useMemo<Record<string, Task>>(() => {
+    const map: Record<string, Task> = {};
+    for (const list of Object.values(tasksByProject)) {
+      for (const task of list) map[task.id] = task;
+    }
+    return map;
+  }, [tasksByProject]);
+
   // All non-archived tasks for the active project (for cycling)
   const activeProjectTasks = activeProjectId
     ? (tasksByProject[activeProjectId] || []).filter((t) => !t.archivedAt)
@@ -478,9 +523,20 @@ export function App() {
   }, [activeProjectId]);
 
   useEffect(() => {
-    if (activeTaskId) localStorage.setItem('activeTaskId', activeTaskId);
-    else localStorage.removeItem('activeTaskId');
-  }, [activeTaskId]);
+    savePanesToStorage(panes, focusedPaneIndex);
+  }, [panes, focusedPaneIndex]);
+
+  // Migrate the legacy `activeTaskId` localStorage entry into a single task
+  // pane on first boot (only when no panes exist yet).
+  useEffect(() => {
+    if (panes.length > 0) return;
+    const legacyTaskId = localStorage.getItem('activeTaskId');
+    if (legacyTaskId) {
+      setPanes([{ kind: 'task', taskId: legacyTaskId }]);
+      setFocusedPaneIndex(0);
+    }
+    // Run once on mount; we intentionally don't react to panes changes.
+  }, []);
 
   // Clear stale activeTaskId if it no longer exists in loaded tasks.
   // Wait until all projects have had their tasks loaded to avoid clearing
@@ -492,7 +548,26 @@ export function App() {
       if (tasks.some((t) => t.id === activeTaskId && !t.archivedAt)) return;
     }
     setActiveTaskId(null);
-  }, [tasksByProject, activeTaskId, projects.length]);
+  }, [tasksByProject, activeTaskId, projects.length, setActiveTaskId]);
+
+  // Drop saved task panes whose tasks no longer exist.
+  useEffect(() => {
+    const allTaskIds = new Set(
+      Object.values(tasksByProject)
+        .flat()
+        .map((t) => t.id),
+    );
+    setPanes((prev) => {
+      const filtered = prev.filter((p) => p.kind !== 'task' || allTaskIds.has(p.taskId));
+      return filtered.length === prev.length ? prev : filtered;
+    });
+  }, [tasksByProject]);
+
+  useEffect(() => {
+    if (panes.length > 0 && focusedPaneIndex >= panes.length) {
+      setFocusedPaneIndex(panes.length - 1);
+    }
+  }, [panes.length, focusedPaneIndex]);
 
   // Load tasks for all projects when projects change
   useEffect(() => {
@@ -1260,6 +1335,32 @@ export function App() {
     return () => window.removeEventListener('claudinator:open-file', handler);
   }, [activeTaskId]);
 
+  const handleFocusPane = useCallback((index: number) => {
+    setFocusedPaneIndex(index);
+  }, []);
+
+  const handleClosePane = useCallback((index: number) => {
+    setPanes((prev) => {
+      if (prev.length <= 1) return prev;
+      const next = prev.filter((_, i) => i !== index);
+      setFocusedPaneIndex((idx) => {
+        if (idx === index) return Math.min(idx, next.length - 1);
+        if (idx > index) return idx - 1;
+        return idx;
+      });
+      return next;
+    });
+  }, []);
+
+  const handleAddScratchPane = useCallback(async () => {
+    const cwd = await defaultScratchCwd();
+    setPanes((prev) => {
+      const newPane: Pane = { kind: 'scratch', id: generateScratchId(), cwd };
+      setFocusedPaneIndex(prev.length);
+      return [...prev, newPane];
+    });
+  }, []);
+
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden">
       {window.electronAPI.getPlatform() === 'darwin' && !showDiff && (
@@ -1389,6 +1490,12 @@ export function App() {
               taskActivity={taskActivity}
               unseenTaskIds={unseenTaskIds}
               remoteControlStates={remoteControlStates}
+              panes={panes}
+              focusedPaneIndex={focusedPaneIndex}
+              taskById={taskById}
+              onFocusPane={handleFocusPane}
+              onClosePane={handleClosePane}
+              onAddScratchPane={handleAddScratchPane}
               onSelectTask={setActiveTaskId}
               onEnableRemoteControl={(taskId) => setRemoteControlModalPtyId(taskId)}
               onNewTask={() => activeProjectId && handleNewTask(activeProjectId)}
