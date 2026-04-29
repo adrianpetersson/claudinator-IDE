@@ -575,8 +575,13 @@ export class TerminalSessionManager {
     await this.saveSnapshot();
   }
 
-  /** Reserve columns so the TUI doesn't render into the right edge. */
-  private static readonly COL_RESERVE = 0;
+  /**
+   * Reserve a few columns so Claude's rendered cards (which include their own
+   * inner margin) don't overflow the visible terminal area, especially in
+   * narrow side-by-side panes. Keep small — large reserves leave big visual
+   * gaps in full-width panes.
+   */
+  private static readonly COL_RESERVE = 3;
   private static readonly COL_RESERVE_SHELL = 0;
 
   /** Reduce cols for PTY so the TUI leaves a right-side gutter. */
