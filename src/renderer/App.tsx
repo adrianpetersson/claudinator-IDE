@@ -1605,7 +1605,7 @@ export function App() {
               <DiffViewer
                 diff={diffResult}
                 loading={diffLoading}
-                activeTaskId={activeTaskId}
+                activeTaskId={displayTask?.id ?? null}
                 onClose={() => {
                   setShowDiff(false);
                   setDiffResult(null);
