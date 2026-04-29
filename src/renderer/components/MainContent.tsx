@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { TerminalPane } from './TerminalPane';
+import { TerminalPaneGroup } from './TerminalPaneGroup';
 import { ProjectOverview } from './ProjectOverview';
 import { openInIde } from '../lib/openInIde';
 import {
@@ -14,6 +14,7 @@ import {
 import type {
   Project,
   Task,
+  Pane,
   LinkedItem,
   RemoteControlState,
   PullRequestInfo,
@@ -88,6 +89,12 @@ interface MainContentProps {
   onArchiveTask?: (id: string) => void;
   onRestoreTask?: (id: string) => void;
   gitStatus?: GitStatus | null;
+  panes: Pane[];
+  focusedPaneIndex: number;
+  taskById: Record<string, Task>;
+  onFocusPane: (index: number) => void;
+  onClosePane: (index: number) => void;
+  onAddScratchPane: () => void;
 }
 
 export function MainContent({
@@ -109,6 +116,12 @@ export function MainContent({
   onArchiveTask,
   onRestoreTask,
   gitStatus,
+  panes,
+  focusedPaneIndex,
+  taskById,
+  onFocusPane,
+  onClosePane,
+  onAddScratchPane,
 }: MainContentProps) {
   const [prInfo, setPrInfo] = useState<PullRequestInfo | null>(null);
 
@@ -170,24 +183,6 @@ export function MainContent({
     );
   }
 
-  if (!activeTask) {
-    return (
-      <ProjectOverview
-        project={activeProject}
-        tasks={tasks}
-        archivedTasks={archivedTasks}
-        taskActivity={taskActivity}
-        onSelectTask={(id) => onSelectTask?.(id)}
-        onNewTask={() => onNewTask?.()}
-        onProjectSettings={() => onProjectSettings?.()}
-        onDeleteProject={() => onDeleteProject?.()}
-        onDeleteTask={(id) => onDeleteTask?.(id)}
-        onArchiveTask={(id) => onArchiveTask?.(id)}
-        onRestoreTask={(id) => onRestoreTask?.(id)}
-      />
-    );
-  }
-
   const currentBranch = gitStatus?.branch || activeTask?.branch;
   const currentBranchUrl =
     currentBranch && activeProject?.gitRemote && gitStatus?.hasUpstream
@@ -195,7 +190,7 @@ export function MainContent({
       : null;
 
   const branchTooltip = gitStatus?.hasUpstream ? 'Branch' : 'Branch (no upstream detected)';
-  const BranchIcon = activeTask.useWorktree ? FolderGit2 : GitBranch;
+  const BranchIcon = activeTask?.useWorktree ? FolderGit2 : GitBranch;
 
   const branchLabel = currentBranchUrl ? (
     <a
@@ -219,7 +214,7 @@ export function MainContent({
     </Tooltip>
   );
 
-  const taskHeader = (
+  const taskHeader = activeTask ? (
     <div
       className="flex items-center gap-3 px-4 h-10 flex-shrink-0 border-b border-border/60"
       style={{ background: 'hsl(var(--surface-1))' }}
@@ -331,17 +326,19 @@ export function MainContent({
         </>
       )}
     </div>
-  );
+  ) : null;
 
   return (
     <div className="h-full flex flex-col bg-background">
       {taskHeader}
       <div className="flex-1 min-h-0">
-        <TerminalPane
-          key={activeTask.id}
-          id={activeTask.id}
-          cwd={activeTask.path}
-          autoApprove={activeTask.autoApprove}
+        <TerminalPaneGroup
+          panes={panes}
+          focusedPaneIndex={focusedPaneIndex}
+          taskById={taskById}
+          onFocus={onFocusPane}
+          onClose={onClosePane}
+          onAdd={onAddScratchPane}
         />
       </div>
     </div>
