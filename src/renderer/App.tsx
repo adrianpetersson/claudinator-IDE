@@ -1288,20 +1288,20 @@ export function App() {
   }
 
   async function handlePush() {
-    if (!activeTask) return;
-    const res = await window.electronAPI.gitPush(activeTask.path);
+    if (!displayTask) return;
+    const res = await window.electronAPI.gitPush(displayTask.path);
     if (!res.success) throw new Error(res.error || 'Push failed');
-    refreshGitStatus(activeTask.path);
+    refreshGitStatus(displayTask.path);
   }
 
   async function handleDiscardFile(filePath: string) {
-    if (!activeTask) return;
-    await window.electronAPI.gitDiscardFile({ cwd: activeTask.path, filePath });
-    refreshGitStatus(activeTask.path);
+    if (!displayTask) return;
+    await window.electronAPI.gitDiscardFile({ cwd: displayTask.path, filePath });
+    refreshGitStatus(displayTask.path);
   }
 
   async function handleViewDiff(filePath: string, staged: boolean) {
-    if (!activeTask) return;
+    if (!displayTask) return;
     setShowDiff(true);
     setDiffLoading(true);
     setDiffResult(null);
@@ -1312,13 +1312,13 @@ export function App() {
       const ctx = diffContextLines ?? undefined;
       if (file?.status === 'untracked') {
         resp = await window.electronAPI.gitGetDiffUntracked({
-          cwd: activeTask.path,
+          cwd: displayTask.path,
           filePath,
           contextLines: ctx,
         });
       } else {
         resp = await window.electronAPI.gitGetDiff({
-          cwd: activeTask.path,
+          cwd: displayTask.path,
           filePath,
           staged,
           contextLines: ctx,
