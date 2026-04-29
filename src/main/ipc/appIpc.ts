@@ -163,6 +163,10 @@ export function registerAppIpc(): void {
     return app.getVersion();
   });
 
+  ipcMain.handle('app:getHomeDir', () => {
+    return { success: true, data: homedir() };
+  });
+
   ipcMain.handle('app:openExternal', async (_event, url: string) => {
     await shell.openExternal(url);
   });

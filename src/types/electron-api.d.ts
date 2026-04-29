@@ -24,6 +24,7 @@ export interface ElectronAPI {
   getPlatform: () => string;
 
   // Dialogs
+  getHomeDir: () => Promise<IpcResponse<string>>;
   showOpenDialog: () => Promise<IpcResponse<string[]>>;
   openExternal: (url: string) => Promise<void>;
   openInEditor: (args: {

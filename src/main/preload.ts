@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPlatform: () => process.platform,
 
   // Dialogs
+  getHomeDir: () => ipcRenderer.invoke('app:getHomeDir'),
   showOpenDialog: () => ipcRenderer.invoke('app:showOpenDialog'),
   openExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
   openInEditor: (args: { cwd: string; filePath: string; line?: number; col?: number }) =>
