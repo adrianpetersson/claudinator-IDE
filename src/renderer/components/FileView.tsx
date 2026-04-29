@@ -1,6 +1,59 @@
 import React, { useEffect, useState } from 'react';
-import { codeToTokens, type BundledLanguage, type ThemedToken } from 'shiki';
+import { createHighlighter, type BundledLanguage, type Highlighter, type ThemedToken } from 'shiki';
+import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
 import { FileText } from 'lucide-react';
+
+// Languages we support inline. Listed up-front so the highlighter pre-loads
+// them and we don't trigger dynamic chunk fetches at runtime — those break
+// inside a packaged Electron app served from file:// + asar.
+const PRELOADED_LANGS: BundledLanguage[] = [
+  'typescript',
+  'tsx',
+  'javascript',
+  'jsx',
+  'json',
+  'jsonc',
+  'css',
+  'scss',
+  'less',
+  'html',
+  'markdown',
+  'mdx',
+  'yaml',
+  'toml',
+  'xml',
+  'bash',
+  'sql',
+  'python',
+  'ruby',
+  'go',
+  'rust',
+  'java',
+  'kotlin',
+  'swift',
+  'c',
+  'cpp',
+  'csharp',
+  'php',
+  'lua',
+  'vue',
+  'svelte',
+];
+
+let highlighterPromise: Promise<Highlighter> | null = null;
+
+function getHighlighter(): Promise<Highlighter> {
+  if (!highlighterPromise) {
+    // JS regex engine avoids the Oniguruma WebAssembly module, which fails to
+    // load over file:// inside a packaged .asar.
+    highlighterPromise = createHighlighter({
+      themes: ['tokyo-night'],
+      langs: PRELOADED_LANGS,
+      engine: createJavaScriptRegexEngine(),
+    });
+  }
+  return highlighterPromise;
+}
 
 const LANGUAGE_MAP: Record<string, string> = {
   ts: 'typescript',
@@ -86,14 +139,13 @@ export function FileView({ taskId, filePath }: FileViewProps) {
           return;
         }
 
-        const lang = getLanguage(filePath) as BundledLanguage;
-        const tokens = await codeToTokens(res.data.content, {
-          lang,
+        const lang = getLanguage(filePath);
+        const highlighter = await getHighlighter();
+        const supported = PRELOADED_LANGS.includes(lang as BundledLanguage);
+        const tokens = highlighter.codeToTokens(res.data.content, {
+          lang: supported ? (lang as BundledLanguage) : 'text',
           theme: 'tokyo-night',
-        }).catch(() =>
-          // Fall back to plain text if shiki doesn't know the language
-          codeToTokens(res.data!.content, { lang: 'text', theme: 'tokyo-night' }),
-        );
+        });
 
         if (cancelled) return;
         setRendered({
