@@ -8,9 +8,15 @@ interface TerminalPaneProps {
   id: string;
   cwd: string;
   autoApprove?: boolean;
+  /**
+   * Optional commands to send to Claude after the session is ready, one per
+   * call. Used for scratch panes to set name/color via slash commands.
+   * Sent only on the first onReady of this mount; not re-sent on resume.
+   */
+  initialCommands?: string[];
 }
 
-export function TerminalPane({ id, cwd, autoApprove }: TerminalPaneProps) {
+export function TerminalPane({ id, cwd, autoApprove, initialCommands }: TerminalPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showOverlay, setShowOverlay] = useState(false);
@@ -24,6 +30,9 @@ export function TerminalPane({ id, cwd, autoApprove }: TerminalPaneProps) {
   }, []);
 
   const overlayStartRef = useRef(0);
+  const initialCommandsSentRef = useRef(false);
+  const initialCommandsRef = useRef(initialCommands);
+  initialCommandsRef.current = initialCommands;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -43,6 +52,18 @@ export function TerminalPane({ id, cwd, autoApprove }: TerminalPaneProps) {
       const elapsed = Date.now() - overlayStartRef.current;
       const remaining = Math.max(0, OVERLAY_MIN_MS - elapsed);
       setTimeout(hideOverlay, remaining);
+      // Send any one-time initial commands (e.g. /color, /rename for scratch
+      // panes). Wait a beat after onReady to make sure Claude's prompt is
+      // accepting input.
+      const cmds = initialCommandsRef.current;
+      if (cmds && cmds.length > 0 && !initialCommandsSentRef.current) {
+        initialCommandsSentRef.current = true;
+        setTimeout(() => {
+          for (const cmd of cmds) {
+            session.writeInput(cmd + '\r');
+          }
+        }, 800);
+      }
     });
 
     // Now attach — the async work will call onRestarting/onReady as needed

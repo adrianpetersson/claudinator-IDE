@@ -20,6 +20,9 @@ export function PaneShell({ pane, task, isFocused, canClose, onFocus, onClose }:
   const id = pane.kind === 'task' ? pane.taskId : pane.id;
   const cwd = pane.kind === 'task' ? (task?.path ?? '') : pane.cwd;
   const autoApprove = pane.kind === 'task' ? (task?.autoApprove ?? false) : false;
+  // Scratch panes get a colored, renamed identity so they're visually distinct
+  // from task panes. Sent via Claude slash commands once the session is ready.
+  const initialCommands = pane.kind === 'scratch' ? ['/rename scratch', '/color green'] : undefined;
 
   return (
     <div
@@ -58,7 +61,12 @@ export function PaneShell({ pane, task, isFocused, canClose, onFocus, onClose }:
           state rather than mounting TerminalPane with empty cwd. */}
       {cwd ? (
         <div className="flex-1 min-h-0">
-          <TerminalPane id={id} cwd={cwd} autoApprove={autoApprove} />
+          <TerminalPane
+            id={id}
+            cwd={cwd}
+            autoApprove={autoApprove}
+            initialCommands={initialCommands}
+          />
         </div>
       ) : (
         <div className="flex-1 flex items-center justify-center text-[12px] text-muted-foreground/70">
