@@ -1,5 +1,4 @@
-// @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import {
   derivedActiveTaskId,
   generateScratchId,
@@ -7,6 +6,22 @@ import {
   savePanesToStorage,
 } from '../derived';
 import type { Pane } from '../../../shared/types';
+
+// vitest config forces `environment: 'node'`, so we stub localStorage with
+// a tiny in-memory shim. (Avoids dragging in jsdom for one helper.)
+beforeAll(() => {
+  const store = new Map<string, string>();
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k)! : null),
+    setItem: (k, v) => void store.set(k, String(v)),
+    removeItem: (k) => void store.delete(k),
+    clear: () => store.clear(),
+    key: (i) => Array.from(store.keys())[i] ?? null,
+    get length() {
+      return store.size;
+    },
+  };
+});
 
 describe('derivedActiveTaskId', () => {
   it('returns the task id when the focused pane is a task pane', () => {
@@ -39,8 +54,10 @@ describe('derivedActiveTaskId', () => {
 });
 
 describe('generateScratchId', () => {
-  it('returns an id starting with the scratch- prefix', () => {
-    expect(generateScratchId()).toMatch(/^scratch-/);
+  it('returns a valid UUID (Claude Code requires this for --session-id)', () => {
+    expect(generateScratchId()).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
   });
 
   it('returns a unique id on each call', () => {

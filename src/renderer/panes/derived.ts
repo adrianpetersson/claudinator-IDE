@@ -15,13 +15,23 @@ export function derivedActiveTaskId(panes: Pane[], focusedIndex: number): string
   return pane.kind === 'task' ? pane.taskId : null;
 }
 
-/** Generate a unique synthetic id for a scratch pane. */
+/**
+ * Generate a unique id for a scratch pane. Must be a plain UUID — Claude Code
+ * validates `--resume <id>` as a UUID and rejects prefixed strings. We track
+ * "this pane is scratch" via `pane.kind`, not by id format, so no prefix is
+ * needed.
+ */
 export function generateScratchId(): string {
-  const uuid =
-    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  return `scratch-${uuid}`;
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  // Fallback: synthesize a v4-shaped UUID using Math.random when crypto is
+  // unavailable. Not cryptographically secure, but adequate for ids.
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
 
 interface LoadedPanes {
