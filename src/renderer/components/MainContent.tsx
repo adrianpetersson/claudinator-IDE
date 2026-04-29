@@ -10,6 +10,7 @@ import {
   GitPullRequest,
   GitMerge,
   Code2,
+  Plus,
 } from 'lucide-react';
 import type {
   Project,
@@ -214,7 +215,18 @@ export function MainContent({
     </Tooltip>
   );
 
-  const taskHeader = activeTask ? (
+  const addScratchButton = (
+    <Tooltip content="New scratch terminal">
+      <button
+        onClick={onAddScratchPane}
+        className="p-1 rounded-md transition-colors text-muted-foreground hover:text-foreground hover:bg-accent/60"
+      >
+        <Plus size={14} strokeWidth={1.8} />
+      </button>
+    </Tooltip>
+  );
+
+  const taskHeader = (
     <div
       className="flex items-center gap-3 px-4 h-10 flex-shrink-0 border-b border-border/60"
       style={{ background: 'hsl(var(--surface-1))' }}
@@ -262,8 +274,9 @@ export function MainContent({
             ))}
           </div>
           {branchBadge}
+          {addScratchButton}
         </>
-      ) : (
+      ) : activeTask ? (
         <>
           <div className="flex items-center gap-2 flex-shrink-0">
             <div className="w-[7px] h-[7px] rounded-full bg-[hsl(var(--git-added))] status-pulse flex-shrink-0" />
@@ -322,11 +335,14 @@ export function MainContent({
                 </a>
               </Tooltip>
             )}
+            {addScratchButton}
           </div>
         </>
+      ) : (
+        <div className="ml-auto">{addScratchButton}</div>
       )}
     </div>
-  ) : null;
+  );
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -338,7 +354,6 @@ export function MainContent({
           taskById={taskById}
           onFocus={onFocusPane}
           onClose={onClosePane}
-          onAdd={onAddScratchPane}
         />
       </div>
     </div>
