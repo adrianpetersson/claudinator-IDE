@@ -231,7 +231,7 @@ export function MainContent({
       className="flex items-center gap-3 px-4 h-10 flex-shrink-0 border-b border-border/60"
       style={{ background: 'hsl(var(--surface-1))' }}
     >
-      {sidebarCollapsed && tasks.length > 0 ? (
+      {tasks.length > 1 ? (
         <>
           <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none flex-1 min-w-0">
             {tasks.map((task, i) => (
