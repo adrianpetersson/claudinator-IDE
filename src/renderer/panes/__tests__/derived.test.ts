@@ -4,8 +4,9 @@ import {
   generateScratchId,
   loadPanesFromStorage,
   savePanesToStorage,
+  withOpenFiles,
 } from '../derived';
-import type { Pane } from '../../../shared/types';
+import type { OpenFileRow, Pane } from '../../../shared/types';
 
 // vitest config forces `environment: 'node'`, so we stub localStorage with
 // a tiny in-memory shim. (Avoids dragging in jsdom for one helper.)
@@ -63,6 +64,25 @@ describe('generateScratchId', () => {
   it('returns a unique id on each call', () => {
     const ids = new Set([generateScratchId(), generateScratchId(), generateScratchId()]);
     expect(ids.size).toBe(3);
+  });
+});
+
+describe('withOpenFiles', () => {
+  it('appends file panes from open_files rows, preserving existing pane order', () => {
+    const base: Pane[] = [{ kind: 'task', taskId: 't-1' }];
+    const rows: OpenFileRow[] = [
+      { id: 1, taskId: 't-1', filePath: 'src/foo.ts', position: 0, openedAt: '' },
+    ];
+    const result = withOpenFiles(base, rows);
+    expect(result).toEqual([
+      { kind: 'task', taskId: 't-1' },
+      { kind: 'file', taskId: 't-1', filePath: 'src/foo.ts' },
+    ]);
+  });
+
+  it('returns a copy of panes when open_files is empty', () => {
+    const base: Pane[] = [{ kind: 'task', taskId: 't-2' }];
+    expect(withOpenFiles(base, [])).toEqual(base);
   });
 });
 

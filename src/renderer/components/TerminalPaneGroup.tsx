@@ -30,7 +30,12 @@ export function TerminalPaneGroup({
   return (
     <PanelGroup direction="horizontal" id="terminal-pane-group">
       {panes.map((pane, i) => {
-        const id = pane.kind === 'task' ? pane.taskId : pane.id;
+        const id =
+          pane.kind === 'task'
+            ? pane.taskId
+            : pane.kind === 'file'
+              ? `${pane.taskId}:${pane.filePath}`
+              : pane.id;
         const task = pane.kind === 'task' ? (taskById[pane.taskId] ?? null) : null;
         return (
           <React.Fragment key={id}>

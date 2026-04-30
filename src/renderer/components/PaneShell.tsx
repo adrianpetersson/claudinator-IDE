@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Terminal as TerminalIcon, Sparkles } from 'lucide-react';
 import { TerminalPane } from './TerminalPane';
+import { FilePane } from './FilePane';
 import type { Pane, Task } from '../../shared/types';
 
 export interface PaneShellProps {
@@ -12,9 +13,30 @@ export interface PaneShellProps {
   canClose: boolean;
   onFocus: () => void;
   onClose: () => void;
+  /** Absolute worktree path for the active task — passed to FilePane for IDE open. */
+  taskCwd?: string | null;
 }
 
-export function PaneShell({ pane, task, isFocused, canClose, onFocus, onClose }: PaneShellProps) {
+export function PaneShell({
+  pane,
+  task,
+  isFocused,
+  canClose,
+  onFocus,
+  onClose,
+  taskCwd,
+}: PaneShellProps) {
+  if (pane.kind === 'file') {
+    return (
+      <FilePane
+        taskId={pane.taskId}
+        cwd={taskCwd ?? ''}
+        filePath={pane.filePath}
+        onClose={onClose}
+      />
+    );
+  }
+
   const isScratch = pane.kind === 'scratch';
   const id = isScratch ? pane.id : pane.taskId;
   const cwd = isScratch ? pane.cwd : (task?.path ?? '');

@@ -1,4 +1,4 @@
-import type { Pane } from '../../shared/types';
+import type { Pane, OpenFileRow } from '../../shared/types';
 
 const PANES_KEY = 'panes';
 const FOCUSED_INDEX_KEY = 'focusedPaneIndex';
@@ -74,6 +74,17 @@ export async function defaultScratchCwd(): Promise<string> {
   const res = await window.electronAPI.getHomeDir();
   const home = res.success && res.data ? res.data : '/tmp';
   return `${home}/Documents`;
+}
+
+/**
+ * Merges persisted open-file rows into a pane list, appending a `file` pane
+ * for each row. Existing panes are preserved in their original order.
+ */
+export function withOpenFiles(panes: Pane[], openFiles: OpenFileRow[]): Pane[] {
+  return [
+    ...panes,
+    ...openFiles.map<Pane>((f) => ({ kind: 'file', taskId: f.taskId, filePath: f.filePath })),
+  ];
 }
 
 function isPane(value: unknown): value is Pane {
