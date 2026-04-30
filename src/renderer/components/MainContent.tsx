@@ -20,9 +20,12 @@ import type {
   RemoteControlState,
   PullRequestInfo,
   GitStatus,
+  RateLimits,
 } from '../../shared/types';
 import { linkedItemUrl, isAdoRemote, branchUrl } from '../../shared/urls';
+import { formatResetTime } from '../../shared/format';
 import { Tooltip } from './ui/Tooltip';
+import { UsageBarInline, usageTextColor } from './ui/UsageBar';
 
 function LinkedItemBadges({
   items,
@@ -96,6 +99,7 @@ interface MainContentProps {
   onFocusPane: (index: number) => void;
   onClosePane: (index: number) => void;
   onAddScratchPane: () => void;
+  latestRateLimits?: RateLimits;
 }
 
 export function MainContent({
@@ -123,6 +127,7 @@ export function MainContent({
   onFocusPane,
   onClosePane,
   onAddScratchPane,
+  latestRateLimits,
 }: MainContentProps) {
   const [prInfo, setPrInfo] = useState<PullRequestInfo | null>(null);
 
@@ -215,6 +220,37 @@ export function MainContent({
     </Tooltip>
   );
 
+  const fiveHour = latestRateLimits?.fiveHour;
+  const fiveHourReset = fiveHour?.resetsAt
+    ? formatResetTime(fiveHour.resetsAt).replace(/^in /, '')
+    : '';
+  const fiveHourBadge = fiveHour ? (
+    <Tooltip
+      content={`5-hour usage: ${Math.round(fiveHour.usedPercentage)}%${
+        fiveHourReset ? ` · resets in ${fiveHourReset}` : ''
+      }`}
+    >
+      <div className="flex items-center gap-1.5 flex-shrink-0 text-[11px] tabular-nums">
+        <span className="text-foreground/50">5h</span>
+        <UsageBarInline
+          percentage={fiveHour.usedPercentage}
+          width="36px"
+          height={4}
+          className="!bg-foreground/20"
+        />
+        <span className={`font-medium ${usageTextColor(fiveHour.usedPercentage)}`}>
+          {Math.round(fiveHour.usedPercentage)}%
+        </span>
+        {fiveHourReset && (
+          <span className="text-foreground/40">
+            <span className="text-foreground/25 mr-1">·</span>
+            {fiveHourReset}
+          </span>
+        )}
+      </div>
+    </Tooltip>
+  ) : null;
+
   const addScratchButton = (
     <Tooltip content="New scratch terminal">
       <button
@@ -273,6 +309,7 @@ export function MainContent({
               </button>
             ))}
           </div>
+          {fiveHourBadge}
           {branchBadge}
           {addScratchButton}
         </>
@@ -291,6 +328,7 @@ export function MainContent({
             />
           )}
           <div className="ml-auto flex items-center gap-1.5">
+            {fiveHourBadge}
             {branchBadge}
             {taskActivity[activeTask.id] && (
               <Tooltip content="Remote control">

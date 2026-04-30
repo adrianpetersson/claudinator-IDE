@@ -710,9 +710,12 @@ export function App() {
         return;
       }
 
-      // Skip global shortcuts when typing in text inputs
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      // Skip global shortcuts when typing in text inputs (but not the xterm
+      // helper textarea — terminal focus shouldn't disable app-level shortcuts)
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const isXtermTextarea = target?.classList.contains('xterm-helper-textarea');
+      if ((tag === 'INPUT' || tag === 'TEXTAREA') && !isXtermTextarea) return;
 
       // Tasks
       if (keybindings.newTask && matchesBinding(e, keybindings.newTask)) {
@@ -803,6 +806,10 @@ export function App() {
       if (keybindings.toggleShellDrawer && matchesBinding(e, keybindings.toggleShellDrawer)) {
         e.preventDefault();
         toggleShellDrawer();
+      }
+      if (keybindings.addScratchPane && matchesBinding(e, keybindings.addScratchPane)) {
+        e.preventDefault();
+        handleAddScratchPane();
       }
     };
     window.addEventListener('keydown', handler);
@@ -1543,6 +1550,7 @@ export function App() {
               onArchiveTask={handleArchiveTask}
               onRestoreTask={handleRestoreTask}
               gitStatus={gitStatus}
+              latestRateLimits={latestRateLimits}
             />
           </ShellDrawerWrapper>
         </Panel>

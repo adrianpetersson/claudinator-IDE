@@ -106,6 +106,15 @@ export const DEFAULT_KEYBINDINGS: KeyBindingMap = {
     alt: false,
     key: 'j',
   },
+  addScratchPane: {
+    id: 'addScratchPane',
+    label: 'New Scratch Terminal',
+    category: 'Navigation',
+    mod: true,
+    shift: false,
+    alt: false,
+    key: 'd',
+  },
 };
 
 const STORAGE_KEY = 'keybindings';
