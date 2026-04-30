@@ -60,6 +60,19 @@ export function runMigrations(): void {
 
   rawDb.exec(`CREATE INDEX IF NOT EXISTS idx_conversations_task_id ON conversations(task_id);`);
 
+  rawDb.exec(`
+    CREATE TABLE IF NOT EXISTS open_files (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      file_path TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      opened_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(task_id, file_path)
+    );
+  `);
+
+  rawDb.exec(`CREATE INDEX IF NOT EXISTS idx_open_files_task_id ON open_files(task_id);`);
+
   // Migrations for existing databases
   try {
     rawDb.exec(`ALTER TABLE tasks ADD COLUMN auto_approve INTEGER DEFAULT 0`);

@@ -305,6 +305,16 @@ export interface RemoteControlState {
   active: boolean;
 }
 
+// ── DB Row Types ─────────────────────────────────────────────
+
+export interface OpenFileRow {
+  id: number;
+  taskId: string;
+  filePath: string;
+  position: number;
+  openedAt: string;
+}
+
 // ── File View Types ─────────────────────────────────────────
 
 export interface FileContent {
