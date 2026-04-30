@@ -360,4 +360,7 @@ export interface FileContent {
  * have a synthetic id (`scratch-${uuid}`) and a user-chosen cwd (defaults
  * to ~/Documents). They never appear in the sidebar or DB.
  */
-export type Pane = { kind: 'task'; taskId: string } | { kind: 'scratch'; id: string; cwd: string };
+export type Pane =
+  | { kind: 'task'; taskId: string }
+  | { kind: 'scratch'; id: string; cwd: string }
+  | { kind: 'file'; taskId: string; filePath: string };
