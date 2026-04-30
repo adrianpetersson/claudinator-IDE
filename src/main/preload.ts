@@ -223,4 +223,33 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener('git:fileChanged', handler);
     };
   },
+
+  // File browser
+  fileBrowserListTree: (args: { taskId: string; showHidden: boolean }) =>
+    ipcRenderer.invoke('fileBrowser:listTree', args),
+  fileBrowserReadFile: (args: { taskId: string; filePath: string }) =>
+    ipcRenderer.invoke('fileBrowser:readFile', args),
+  fileBrowserWatch: (args: { taskId: string }) => ipcRenderer.invoke('fileBrowser:watch', args),
+  fileBrowserUnwatch: (args: { taskId: string }) => ipcRenderer.invoke('fileBrowser:unwatch', args),
+  onFileBrowserFileChanged: (taskId: string, cb: (relPath: string) => void) => {
+    const ch = `fileBrowser:fileChanged:${taskId}`;
+    const handler = (_e: unknown, p: string) => cb(p);
+    ipcRenderer.on(ch, handler);
+    return () => ipcRenderer.removeListener(ch, handler);
+  },
+  onFileBrowserTreeChanged: (taskId: string, cb: () => void) => {
+    const ch = `fileBrowser:treeChanged:${taskId}`;
+    const handler = () => cb();
+    ipcRenderer.on(ch, handler);
+    return () => ipcRenderer.removeListener(ch, handler);
+  },
+
+  // Open files
+  openFilesList: (taskId: string) => ipcRenderer.invoke('openFiles:list', { taskId }),
+  openFilesAdd: (args: { taskId: string; filePath: string }) =>
+    ipcRenderer.invoke('openFiles:add', args),
+  openFilesRemove: (args: { taskId: string; filePath: string }) =>
+    ipcRenderer.invoke('openFiles:remove', args),
+  openFilesReorder: (args: { taskId: string; paths: string[] }) =>
+    ipcRenderer.invoke('openFiles:reorder', args),
 });

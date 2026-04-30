@@ -16,6 +16,9 @@ import type {
   PullRequestInfo,
   ActivityInfo,
   FileContent,
+  OpenFileRow,
+  ReadFileResult,
+  TreeNode,
 } from '../shared/types';
 
 export interface ElectronAPI {
@@ -238,6 +241,26 @@ export interface ElectronAPI {
   gitWatch: (args: { id: string; cwd: string }) => Promise<IpcResponse<void>>;
   gitUnwatch: (id: string) => Promise<IpcResponse<void>>;
   onGitFileChanged: (callback: (id: string) => void) => () => void;
+
+  // File browser
+  fileBrowserListTree: (args: {
+    taskId: string;
+    showHidden: boolean;
+  }) => Promise<IpcResponse<TreeNode[]>>;
+  fileBrowserReadFile: (args: {
+    taskId: string;
+    filePath: string;
+  }) => Promise<IpcResponse<ReadFileResult>>;
+  fileBrowserWatch: (args: { taskId: string }) => Promise<IpcResponse<null>>;
+  fileBrowserUnwatch: (args: { taskId: string }) => Promise<IpcResponse<null>>;
+  onFileBrowserFileChanged: (taskId: string, cb: (relPath: string) => void) => () => void;
+  onFileBrowserTreeChanged: (taskId: string, cb: () => void) => () => void;
+
+  // Open files
+  openFilesList: (taskId: string) => Promise<IpcResponse<OpenFileRow[]>>;
+  openFilesAdd: (args: { taskId: string; filePath: string }) => Promise<IpcResponse<OpenFileRow>>;
+  openFilesRemove: (args: { taskId: string; filePath: string }) => Promise<IpcResponse<null>>;
+  openFilesReorder: (args: { taskId: string; paths: string[] }) => Promise<IpcResponse<null>>;
 }
 
 declare global {
