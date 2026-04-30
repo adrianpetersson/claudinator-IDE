@@ -315,6 +315,15 @@ export interface OpenFileRow {
   openedAt: string;
 }
 
+// ── File Tree Types ─────────────────────────────────────────
+
+export interface TreeNode {
+  name: string;
+  path: string; // relative to worktree root, posix separators
+  kind: 'file' | 'dir';
+  children?: TreeNode[]; // present for dirs (may be empty)
+}
+
 // ── File View Types ─────────────────────────────────────────
 
 export interface FileContent {
