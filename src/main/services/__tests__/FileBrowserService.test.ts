@@ -60,3 +60,45 @@ function collect(tree: { name: string; children?: { name: string }[] }[]): strin
   walk(tree);
   return out;
 }
+
+import { Buffer } from 'buffer';
+
+describe('FileBrowserService.readFile', () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = makeWorktree();
+  });
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('returns text for utf-8 files', async () => {
+    fs.writeFileSync(path.join(dir, 'a.ts'), 'export const x = 1;\n');
+    const res = await FileBrowserService.readFile(dir, 'a.ts');
+    expect(res.kind).toBe('text');
+    if (res.kind === 'text') expect(res.content).toBe('export const x = 1;\n');
+  });
+
+  it('returns binary marker for PNG signature', async () => {
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+    fs.writeFileSync(path.join(dir, 'img.png'), png);
+    const res = await FileBrowserService.readFile(dir, 'img.png');
+    expect(res.kind).toBe('binary');
+  });
+
+  it('returns too_large for >1MB files (metadata only)', async () => {
+    fs.writeFileSync(path.join(dir, 'big.txt'), Buffer.alloc(1024 * 1024 + 10, 'a'));
+    const res = await FileBrowserService.readFile(dir, 'big.txt');
+    expect(res.kind).toBe('error');
+    if (res.kind === 'error') {
+      expect(res.reason).toBe('too_large');
+      expect(res.bytes).toBeGreaterThan(1024 * 1024);
+    }
+  });
+
+  it('returns not_found for missing files', async () => {
+    const res = await FileBrowserService.readFile(dir, 'nope.ts');
+    expect(res.kind).toBe('error');
+    if (res.kind === 'error') expect(res.reason).toBe('not_found');
+  });
+});

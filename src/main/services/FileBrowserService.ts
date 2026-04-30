@@ -2,6 +2,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
+import { Buffer } from 'buffer';
 import type { TreeNode } from '@shared/types';
 import ignore from 'ignore';
 
@@ -28,6 +29,90 @@ export class FileBrowserService {
     });
     return buildTree(filtered);
   }
+
+  static async readFile(
+    worktreeRoot: string,
+    relPath: string,
+  ): Promise<import('@shared/types').ReadFileResult> {
+    const abs = path.join(worktreeRoot, relPath);
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(abs);
+    } catch {
+      return { kind: 'error', reason: 'not_found' };
+    }
+    const bytes = stat.size;
+    const MAX = 1024 * 1024;
+    if (bytes > MAX) return { kind: 'error', reason: 'too_large', bytes };
+
+    let fd: number | null = null;
+    try {
+      fd = fs.openSync(abs, 'r');
+      const head = Buffer.alloc(Math.min(512, bytes));
+      fs.readSync(fd, head, 0, head.length, 0);
+      if (isBinary(head, relPath)) return { kind: 'binary', bytes };
+      const buf = Buffer.alloc(bytes);
+      fs.readSync(fd, buf, 0, bytes, 0);
+      return { kind: 'text', content: buf.toString('utf8'), bytes, truncated: false };
+    } catch (err) {
+      return {
+        kind: 'error',
+        reason: 'read_failed',
+        message: err instanceof Error ? err.message : String(err),
+      };
+    } finally {
+      if (fd !== null) {
+        try {
+          fs.closeSync(fd);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
+}
+
+const BINARY_EXTS = new Set([
+  'png',
+  'jpg',
+  'jpeg',
+  'gif',
+  'webp',
+  'ico',
+  'icns',
+  'pdf',
+  'zip',
+  'gz',
+  'tar',
+  'tgz',
+  'bz2',
+  'xz',
+  '7z',
+  'exe',
+  'dll',
+  'so',
+  'dylib',
+  'a',
+  'o',
+  'mp3',
+  'mp4',
+  'mov',
+  'wav',
+  'ogg',
+  'webm',
+  'woff',
+  'woff2',
+  'ttf',
+  'otf',
+  'eot',
+  'wasm',
+]);
+
+function isBinary(head: Buffer, relPath: string): boolean {
+  const ext = relPath.split('.').pop()?.toLowerCase() ?? '';
+  if (BINARY_EXTS.has(ext)) return true;
+  for (let i = 0; i < head.length; i++) if (head[i] === 0) return true;
+  return false;
 }
 
 async function listViaGit(cwd: string): Promise<string[]> {

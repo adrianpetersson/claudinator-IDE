@@ -324,6 +324,16 @@ export interface TreeNode {
   children?: TreeNode[]; // present for dirs (may be empty)
 }
 
+export type ReadFileResult =
+  | { kind: 'text'; content: string; bytes: number; truncated: boolean }
+  | { kind: 'binary'; bytes: number }
+  | {
+      kind: 'error';
+      reason: 'not_found' | 'too_large' | 'read_failed';
+      bytes?: number;
+      message?: string;
+    };
+
 // ── File View Types ─────────────────────────────────────────
 
 export interface FileContent {
