@@ -8,6 +8,8 @@ export interface TerminalPaneGroupProps {
   focusedPaneIndex: number;
   /** Tasks indexed by id — used to look up task name + cwd for `task` panes. */
   taskById: Record<string, Task>;
+  /** Active task worktree path — forwarded to PaneShell for `file` panes. */
+  taskCwd?: string | null;
   onFocus: (index: number) => void;
   onClose: (index: number) => void;
 }
@@ -16,6 +18,7 @@ export function TerminalPaneGroup({
   panes,
   focusedPaneIndex,
   taskById,
+  taskCwd,
   onFocus,
   onClose,
 }: TerminalPaneGroupProps) {
@@ -46,6 +49,7 @@ export function TerminalPaneGroup({
                 task={task}
                 isFocused={i === focusedPaneIndex}
                 canClose={panes.length > 1}
+                taskCwd={taskCwd ?? null}
                 onFocus={() => onFocus(i)}
                 onClose={() => onClose(i)}
               />

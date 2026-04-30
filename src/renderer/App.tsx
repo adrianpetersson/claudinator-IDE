@@ -34,6 +34,7 @@ import type {
   UsageThresholds,
   ActivityInfo,
   Pane,
+  OpenFileRow,
 } from '../shared/types';
 import {
   derivedActiveTaskId,
@@ -41,6 +42,7 @@ import {
   loadPanesFromStorage,
   savePanesToStorage,
   defaultScratchCwd,
+  withOpenFiles,
 } from './panes/derived';
 import type { CreateTaskOptions } from './components/TaskModal';
 import { formatTaskContextPrompt } from '../shared/taskContext';
@@ -64,6 +66,7 @@ export function App() {
     () => loadPanesFromStorage().focusedIndex,
   );
   const activeTaskId = derivedActiveTaskId(panes, focusedPaneIndex);
+  const [openFilesByTask, setOpenFilesByTask] = useState<Record<string, OpenFileRow[]>>({});
 
   // Wrapper that keeps the existing call sites working. Either focus the pane
   // that already shows this task, or replace an existing task pane in place.
@@ -304,6 +307,28 @@ export function App() {
       next.delete(activeTaskId);
       return next;
     });
+  }, [activeTaskId]);
+
+  // Hydrate persisted open-file rows for the active task.
+  useEffect(() => {
+    if (!activeTaskId) return;
+    let cancelled = false;
+    window.electronAPI.openFilesList(activeTaskId).then((res) => {
+      if (cancelled || !res.success) return;
+      setOpenFilesByTask((prev) => ({ ...prev, [activeTaskId]: res.data ?? [] }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTaskId]);
+
+  // Start/stop the chokidar watcher on the active task's worktree.
+  useEffect(() => {
+    if (!activeTaskId) return;
+    window.electronAPI.fileBrowserWatch({ taskId: activeTaskId });
+    return () => {
+      window.electronAPI.fileBrowserUnwatch({ taskId: activeTaskId });
+    };
   }, [activeTaskId]);
 
   // Left-sidebar task cards: context progress bar under each task
@@ -1375,18 +1400,55 @@ export function App() {
     setFocusedPaneIndex(index);
   }, []);
 
-  const handleClosePane = useCallback((index: number) => {
-    setPanes((prev) => {
-      if (prev.length <= 1) return prev;
-      const next = prev.filter((_, i) => i !== index);
-      setFocusedPaneIndex((idx) => {
-        if (idx === index) return Math.min(idx, next.length - 1);
-        if (idx > index) return idx - 1;
-        return idx;
-      });
-      return next;
+  const handleOpenFilePane = useCallback(async (taskId: string, filePath: string) => {
+    const res = await window.electronAPI.openFilesAdd({ taskId, filePath });
+    if (!res.success || !res.data) return;
+    const row = res.data;
+    setOpenFilesByTask((prev) => {
+      const cur = prev[taskId] ?? [];
+      if (cur.some((f) => f.filePath === filePath)) return prev;
+      return { ...prev, [taskId]: [...cur, row] };
     });
   }, []);
+
+  const handleCloseFilePane = useCallback(async (taskId: string, filePath: string) => {
+    await window.electronAPI.openFilesRemove({ taskId, filePath });
+    setOpenFilesByTask((prev) => {
+      const cur = prev[taskId] ?? [];
+      return { ...prev, [taskId]: cur.filter((f) => f.filePath !== filePath) };
+    });
+  }, []);
+
+  // Compute the rendered pane list with file panes appended for the active task.
+  const panesWithFiles = useMemo(() => {
+    const filesForTask = (activeTaskId && openFilesByTask[activeTaskId]) || [];
+    return withOpenFiles(panes, filesForTask);
+  }, [panes, openFilesByTask, activeTaskId]);
+
+  // Close handler routed by pane kind. Receives index into `panesWithFiles`
+  // (the rendered list). File panes are persisted in SQLite — close them via
+  // the open-files store. Task and scratch panes mutate the local panes state.
+  const handleClosePane = useCallback(
+    (index: number) => {
+      const pane = panesWithFiles[index];
+      if (!pane) return;
+      if (pane.kind === 'file') {
+        handleCloseFilePane(pane.taskId, pane.filePath);
+        return;
+      }
+      setPanes((prev) => {
+        if (prev.length <= 1) return prev;
+        const next = prev.filter((_, i) => i !== index);
+        setFocusedPaneIndex((idx) => {
+          if (idx === index) return Math.min(idx, next.length - 1);
+          if (idx > index) return idx - 1;
+          return idx;
+        });
+        return next;
+      });
+    },
+    [panesWithFiles, handleCloseFilePane],
+  );
 
   const handleAddScratchPane = useCallback(async () => {
     const cwd = await defaultScratchCwd();
@@ -1485,6 +1547,7 @@ export function App() {
                 onRemoveFromRotation={removeFromRotation}
                 showActiveTasksSection={showActiveTasksSection}
                 onToggleActiveTasksSection={() => setShowActiveTasksSection((v) => !v)}
+                onOpenFilePane={handleOpenFilePane}
               />
             </ShellDrawerWrapper>
           </Panel>
@@ -1526,9 +1589,10 @@ export function App() {
               taskActivity={taskActivity}
               unseenTaskIds={unseenTaskIds}
               remoteControlStates={remoteControlStates}
-              panes={panes}
+              panes={panesWithFiles}
               focusedPaneIndex={focusedPaneIndex}
               taskById={taskById}
+              taskCwd={activeTask?.path ?? null}
               onFocusPane={handleFocusPane}
               onClosePane={handleClosePane}
               onAddScratchPane={handleAddScratchPane}

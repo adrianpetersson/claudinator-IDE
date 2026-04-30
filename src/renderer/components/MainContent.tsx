@@ -96,6 +96,8 @@ interface MainContentProps {
   panes: Pane[];
   focusedPaneIndex: number;
   taskById: Record<string, Task>;
+  /** Worktree cwd of the active task — forwarded to FilePane via PaneShell for "Open in IDE". */
+  taskCwd?: string | null;
   onFocusPane: (index: number) => void;
   onClosePane: (index: number) => void;
   onAddScratchPane: () => void;
@@ -124,6 +126,7 @@ export function MainContent({
   panes,
   focusedPaneIndex,
   taskById,
+  taskCwd,
   onFocusPane,
   onClosePane,
   onAddScratchPane,
@@ -390,6 +393,7 @@ export function MainContent({
           panes={panes}
           focusedPaneIndex={focusedPaneIndex}
           taskById={taskById}
+          taskCwd={taskCwd ?? null}
           onFocus={onFocusPane}
           onClose={onClosePane}
         />
