@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { UsageBarInline, usageTextColor } from './ui/UsageBar';
+import { FileTree } from './FileTree';
 import {
   FolderOpen,
   Plus,
@@ -193,6 +194,7 @@ interface LeftSidebarProps {
   onRemoveFromRotation?: (taskId: string) => void;
   showActiveTasksSection?: boolean;
   onToggleActiveTasksSection?: () => void;
+  onOpenFilePane: (taskId: string, filePath: string) => void;
 }
 
 export function LeftSidebar({
@@ -221,11 +223,19 @@ export function LeftSidebar({
   onRemoveFromRotation,
   showActiveTasksSection = true,
   onToggleActiveTasksSection,
+  onOpenFilePane,
 }: LeftSidebarProps) {
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
   const [collapsedArchived, setCollapsedArchived] = useState<Set<string>>(new Set());
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const dragIdRef = useRef<string | null>(null);
+  const [filesOpen, setFilesOpen] = useState<boolean>(
+    () => localStorage.getItem('leftSidebar:filesOpen') !== '0',
+  );
+
+  useEffect(() => {
+    localStorage.setItem('leftSidebar:filesOpen', filesOpen ? '1' : '0');
+  }, [filesOpen]);
 
   function toggleCollapse(projectId: string) {
     setCollapsedProjects((prev) => {
@@ -735,6 +745,25 @@ export function LeftSidebar({
             );
           })}
         </div>
+      </div>
+
+      {/* Files section */}
+      <div className="border-t border-[hsl(var(--border))]">
+        <button
+          onClick={() => setFilesOpen((v) => !v)}
+          className="w-full px-3 py-1.5 flex items-center gap-1 text-[10px] uppercase tracking-wide text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+        >
+          {filesOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+          Files
+        </button>
+        {filesOpen && (
+          <div className="max-h-80 overflow-auto">
+            <FileTree
+              taskId={activeTaskId}
+              onOpenFile={(p) => activeTaskId && onOpenFilePane(activeTaskId, p)}
+            />
+          </div>
+        )}
       </div>
 
       {/* Settings */}
