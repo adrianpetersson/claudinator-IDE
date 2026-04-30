@@ -260,4 +260,12 @@ app.on('before-quit', async () => {
   } catch {
     // Best effort
   }
+
+  // Stop all file-tree (chokidar) watchers
+  try {
+    const { FileBrowserService } = await import('./services/FileBrowserService');
+    await FileBrowserService.unwatchAll();
+  } catch {
+    // Best effort
+  }
 });

@@ -94,12 +94,28 @@ export class FileBrowserService {
   static async watch(taskId: string, worktreeRoot: string, cb: WatchCallbacks): Promise<void> {
     if (watchers.has(taskId)) await FileBrowserService.unwatch(taskId);
 
+    // Build a gitignore-aware predicate so chokidar doesn't descend into
+    // dist/, .next/, .cache/, etc. on initial scan — that's what was hanging
+    // the main process on large repos.
+    const ig = ignore();
+    const gitignorePath = path.join(worktreeRoot, '.gitignore');
+    if (fs.existsSync(gitignorePath)) {
+      try {
+        ig.add(fs.readFileSync(gitignorePath, 'utf8'));
+      } catch {
+        /* best effort */
+      }
+    }
+
     const watcher = chokidar.watch(worktreeRoot, {
       ignored: (p: string) => {
         const rel = path.relative(worktreeRoot, p);
-        if (!rel) return false;
-        const top = rel.split(path.sep)[0];
-        return ALWAYS_DENY.has(top);
+        if (!rel || rel.startsWith('..')) return false;
+        const segs = rel.split(path.sep);
+        if (segs.some((s) => ALWAYS_DENY.has(s))) return true;
+        // The `ignore` package requires posix separators and a non-empty path.
+        const posix = segs.join('/');
+        return ig.ignores(posix);
       },
       ignoreInitial: true,
       awaitWriteFinish: { stabilityThreshold: 30, pollInterval: 20 },
@@ -155,7 +171,10 @@ export class FileBrowserService {
       // chokidar keeps going for most errors; caller can re-watch on EMFILE etc.
     });
 
-    await new Promise<void>((resolve) => watcher.on('ready', () => resolve()));
+    // Don't await 'ready' here — the initial scan can take seconds on large
+    // repos and we don't want to block the IPC response. Tests still observe
+    // events fine because chokidar starts emitting once individual files are
+    // wired up; tests insert their own settle delay before triggering writes.
   }
 
   static async unwatch(taskId: string): Promise<void> {
