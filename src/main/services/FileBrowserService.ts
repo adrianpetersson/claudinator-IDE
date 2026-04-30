@@ -5,10 +5,30 @@ import * as path from 'path';
 import { Buffer } from 'buffer';
 import type { TreeNode } from '@shared/types';
 import ignore from 'ignore';
+import chokidar, { type FSWatcher } from 'chokidar';
 
 const execFileAsync = promisify(execFile);
 
 const ALWAYS_DENY = new Set(['.git', 'node_modules']);
+
+interface WatcherEntry {
+  watcher: FSWatcher;
+  fileTimer: ReturnType<typeof setTimeout> | null;
+  fileQueue: Set<string>;
+  treeTimer: ReturnType<typeof setTimeout> | null;
+  treeDirty: boolean;
+  cb: WatchCallbacks;
+}
+
+export interface WatchCallbacks {
+  onFileChanged: (relPath: string) => void;
+  onTreeChanged: () => void;
+}
+
+const watchers = new Map<string, WatcherEntry>();
+
+const FILE_DEBOUNCE_MS = 50;
+const TREE_DEBOUNCE_MS = 200;
 
 export interface ListTreeOptions {
   showHidden: boolean;
@@ -69,6 +89,86 @@ export class FileBrowserService {
         }
       }
     }
+  }
+
+  static async watch(taskId: string, worktreeRoot: string, cb: WatchCallbacks): Promise<void> {
+    if (watchers.has(taskId)) await FileBrowserService.unwatch(taskId);
+
+    const watcher = chokidar.watch(worktreeRoot, {
+      ignored: (p: string) => {
+        const rel = path.relative(worktreeRoot, p);
+        if (!rel) return false;
+        const top = rel.split(path.sep)[0];
+        return ALWAYS_DENY.has(top);
+      },
+      ignoreInitial: true,
+      awaitWriteFinish: { stabilityThreshold: 30, pollInterval: 20 },
+    });
+
+    const entry: WatcherEntry = {
+      watcher,
+      fileTimer: null,
+      fileQueue: new Set(),
+      treeTimer: null,
+      treeDirty: false,
+      cb,
+    };
+    watchers.set(taskId, entry);
+
+    const flushFiles = () => {
+      const paths = Array.from(entry.fileQueue);
+      entry.fileQueue.clear();
+      entry.fileTimer = null;
+      paths.forEach((p) => entry.cb.onFileChanged(p));
+    };
+    const flushTree = () => {
+      entry.treeDirty = false;
+      entry.treeTimer = null;
+      entry.cb.onTreeChanged();
+    };
+
+    const queueFile = (abs: string) => {
+      const rel = path.relative(worktreeRoot, abs).split(path.sep).join('/');
+      entry.fileQueue.add(rel);
+      if (entry.fileTimer) clearTimeout(entry.fileTimer);
+      entry.fileTimer = setTimeout(flushFiles, FILE_DEBOUNCE_MS);
+    };
+
+    const treeEvent = () => {
+      entry.treeDirty = true;
+      if (entry.treeTimer) clearTimeout(entry.treeTimer);
+      entry.treeTimer = setTimeout(flushTree, TREE_DEBOUNCE_MS);
+    };
+
+    watcher.on('change', queueFile);
+    // unlink fires BOTH fileChanged (so any open FilePane re-fetches and lands
+    // in not_found state) and treeChanged (so the tree updates).
+    watcher.on('unlink', (abs) => {
+      queueFile(abs);
+      treeEvent();
+    });
+    watcher.on('add', treeEvent);
+    watcher.on('addDir', treeEvent);
+    watcher.on('unlinkDir', treeEvent);
+
+    watcher.on('error', () => {
+      // chokidar keeps going for most errors; caller can re-watch on EMFILE etc.
+    });
+
+    await new Promise<void>((resolve) => watcher.on('ready', () => resolve()));
+  }
+
+  static async unwatch(taskId: string): Promise<void> {
+    const entry = watchers.get(taskId);
+    if (!entry) return;
+    if (entry.fileTimer) clearTimeout(entry.fileTimer);
+    if (entry.treeTimer) clearTimeout(entry.treeTimer);
+    await entry.watcher.close();
+    watchers.delete(taskId);
+  }
+
+  static async unwatchAll(): Promise<void> {
+    await Promise.all(Array.from(watchers.keys()).map((id) => FileBrowserService.unwatch(id)));
   }
 }
 

@@ -102,3 +102,58 @@ describe('FileBrowserService.readFile', () => {
     if (res.kind === 'error') expect(res.reason).toBe('not_found');
   });
 });
+
+describe('FileBrowserService watcher', () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = makeWorktree();
+  });
+  afterEach(async () => {
+    await FileBrowserService.unwatch('test-task');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('emits fileChanged when a watched file is written', async () => {
+    fs.writeFileSync(path.join(dir, 'a.ts'), 'v1');
+    const events: string[] = [];
+    await FileBrowserService.watch('test-task', dir, {
+      onFileChanged: (p) => events.push(p),
+      onTreeChanged: () => {},
+    });
+    await new Promise((r) => setTimeout(r, 200));
+    fs.writeFileSync(path.join(dir, 'a.ts'), 'v2');
+    await new Promise((r) => setTimeout(r, 400));
+    expect(events).toContain('a.ts');
+  });
+
+  it('emits treeChanged when a file is added', async () => {
+    let treeEvents = 0;
+    await FileBrowserService.watch('test-task', dir, {
+      onFileChanged: () => {},
+      onTreeChanged: () => {
+        treeEvents++;
+      },
+    });
+    await new Promise((r) => setTimeout(r, 200));
+    fs.writeFileSync(path.join(dir, 'new.ts'), '');
+    await new Promise((r) => setTimeout(r, 500));
+    expect(treeEvents).toBeGreaterThan(0);
+  });
+
+  it('emits BOTH fileChanged and treeChanged when a file is unlinked', async () => {
+    fs.writeFileSync(path.join(dir, 'a.ts'), 'v1');
+    const fileEvents: string[] = [];
+    let treeEvents = 0;
+    await FileBrowserService.watch('test-task', dir, {
+      onFileChanged: (p) => fileEvents.push(p),
+      onTreeChanged: () => {
+        treeEvents++;
+      },
+    });
+    await new Promise((r) => setTimeout(r, 200));
+    fs.unlinkSync(path.join(dir, 'a.ts'));
+    await new Promise((r) => setTimeout(r, 400));
+    expect(fileEvents).toContain('a.ts');
+    expect(treeEvents).toBeGreaterThan(0);
+  });
+});
