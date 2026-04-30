@@ -100,9 +100,14 @@ app.whenReady().then(async () => {
   const { DatabaseService } = await import('./services/DatabaseService');
   await DatabaseService.initialize();
 
+  // Sweep stale Dash hooks left behind in known project/task working dirs
+  // (crashes / force-quits don't run the on-quit cleanup). Must happen before
+  // the HookServer binds so we don't race a freshly-rewritten settings file.
+  const { sweepStaleHookSettings, hasPty } = await import('./services/ptyManager');
+  sweepStaleHookSettings();
+
   // Start hook server (must be ready before any PTY spawns)
   const { hookServer } = await import('./services/HookServer');
-  const { hasPty } = await import('./services/ptyManager');
   hookServer.setPtyValidator(hasPty);
   await hookServer.start();
 

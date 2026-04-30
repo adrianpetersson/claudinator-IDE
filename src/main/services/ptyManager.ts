@@ -9,6 +9,8 @@ import { hookServer } from './HookServer';
 import { contextUsageService } from './ContextUsageService';
 import { DatabaseService } from './DatabaseService';
 import { terminalSnapshotService } from './TerminalSnapshotService';
+import { getDb } from '../db/client';
+import { tasks, projects } from '../db/schema';
 
 const execFileAsync = promisify(execFile);
 
@@ -473,46 +475,168 @@ print(m + (' · ' + c if c else ''))"`;
   }
 }
 
+/** URL of any hook entry Claudinator wrote (any port — old runs included). */
+const DASH_HOOK_URL_RE = /^http:\/\/127\.0\.0\.1:\d+\/hook\//;
+/** Shape of the SessionStart context-injection command we generate (base64 + decode). */
+const DASH_CONTEXT_HOOK_RE = /(?:\| base64 -[Dd]\b|FromBase64String\()/;
+/** Shape of the statusLine command we write (curls our /hook/context endpoint). */
+const DASH_STATUSLINE_RE = /\/hook\/context\?ptyId=/;
+
+/** True if a single hook entry under hooks.<event>[i].hooks[j] was written by Claudinator. */
+function isDashHookEntry(entry: unknown): boolean {
+  if (!entry || typeof entry !== 'object') return false;
+  const e = entry as { type?: unknown; url?: unknown; command?: unknown };
+  if (e.type === 'http' && typeof e.url === 'string' && DASH_HOOK_URL_RE.test(e.url)) return true;
+  if (
+    e.type === 'command' &&
+    typeof e.command === 'string' &&
+    DASH_CONTEXT_HOOK_RE.test(e.command)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 /**
- * Remove Claudinator-written hooks and attribution from all settings.local.json files
- * that were written during this session. Called on app quit to prevent stale hooks.
+ * Strip Dash-written entries from a single event's array, returning a new
+ * array. Drops any config whose `hooks` becomes empty after filtering — that
+ * way user-added entries under the same matcher are preserved.
+ */
+function stripDashEntries(eventArray: unknown): { result: unknown[]; modified: boolean } {
+  if (!Array.isArray(eventArray)) return { result: [], modified: false };
+  const result: unknown[] = [];
+  let modified = false;
+  for (const cfg of eventArray) {
+    if (!cfg || typeof cfg !== 'object') {
+      result.push(cfg);
+      continue;
+    }
+    const c = cfg as { matcher?: unknown; hooks?: unknown };
+    if (!Array.isArray(c.hooks)) {
+      result.push(cfg);
+      continue;
+    }
+    const filteredHooks = c.hooks.filter((h) => !isDashHookEntry(h));
+    if (filteredHooks.length !== c.hooks.length) modified = true;
+    if (filteredHooks.length === 0) continue;
+    result.push({ ...c, hooks: filteredHooks });
+  }
+  return { result, modified };
+}
+
+/**
+ * Strip Claudinator-written hooks, statusLine, and attribution from a single
+ * settings.local.json. Surgical: matches by URL/command pattern so user-added
+ * entries under the same event keys are preserved. Deletes the file if it's
+ * empty after cleanup.
+ */
+function cleanupHookSettingsFile(settingsPath: string): void {
+  try {
+    if (!fs.existsSync(settingsPath)) return;
+
+    const raw = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+
+    let modified = false;
+
+    const hooks = raw.hooks;
+    if (hooks && typeof hooks === 'object' && !Array.isArray(hooks)) {
+      for (const key of DASH_HOOK_EVENTS) {
+        if (!Array.isArray((hooks as Record<string, unknown>)[key])) continue;
+        const { result, modified: keyModified } = stripDashEntries(
+          (hooks as Record<string, unknown>)[key],
+        );
+        if (!keyModified) continue;
+        modified = true;
+        if (result.length === 0) {
+          delete (hooks as Record<string, unknown>)[key];
+        } else {
+          (hooks as Record<string, unknown>)[key] = result;
+        }
+      }
+      if (Object.keys(hooks as Record<string, unknown>).length === 0) {
+        delete raw.hooks;
+      }
+    }
+
+    if (raw.statusLine && typeof raw.statusLine === 'object') {
+      const cmd = (raw.statusLine as { command?: unknown }).command;
+      if (typeof cmd === 'string' && DASH_STATUSLINE_RE.test(cmd)) {
+        delete raw.statusLine;
+        modified = true;
+      }
+    }
+
+    // Only delete attribution if it's the shape we write: a single `commit`
+    // key whose value is empty or contains "Claudinator". Anything else is
+    // either user-set or a custom override and must be left alone.
+    if (raw.attribution && typeof raw.attribution === 'object') {
+      const attrKeys = Object.keys(raw.attribution as Record<string, unknown>);
+      const commit = (raw.attribution as { commit?: unknown }).commit;
+      if (
+        attrKeys.length === 1 &&
+        attrKeys[0] === 'commit' &&
+        typeof commit === 'string' &&
+        (commit === '' || commit.includes('Claudinator'))
+      ) {
+        delete raw.attribution;
+        modified = true;
+      }
+    }
+
+    if (!modified) return;
+
+    if (Object.keys(raw).length === 0) {
+      fs.unlinkSync(settingsPath);
+      console.error(`[cleanupHookSettings] Removed empty ${settingsPath}`);
+    } else {
+      fs.writeFileSync(settingsPath, JSON.stringify(raw, null, 2) + '\n');
+      console.error(`[cleanupHookSettings] Cleaned Dash entries from ${settingsPath}`);
+    }
+  } catch (err) {
+    console.error(`[cleanupHookSettings] Failed for ${settingsPath}:`, err);
+  }
+}
+
+/**
+ * Remove Claudinator-written hooks and attribution from all settings.local.json
+ * files written during this session. Called on app quit.
  */
 export function cleanupHookSettings(): void {
   for (const settingsPath of writtenSettingsPaths) {
-    try {
-      if (!fs.existsSync(settingsPath)) continue;
-
-      const raw = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-      const hooks = raw.hooks;
-
-      if (hooks && typeof hooks === 'object') {
-        for (const key of DASH_HOOK_EVENTS) {
-          delete hooks[key];
-        }
-        // Remove hooks object entirely if empty
-        if (Object.keys(hooks).length === 0) {
-          delete raw.hooks;
-        }
-      }
-
-      // Remove Claudinator statusLine and attribution
-      delete raw.statusLine;
-      delete raw.attribution;
-
-      // If nothing meaningful remains, delete the file
-      if (Object.keys(raw).length === 0) {
-        fs.unlinkSync(settingsPath);
-        console.error(`[cleanupHookSettings] Removed empty ${settingsPath}`);
-      } else {
-        fs.writeFileSync(settingsPath, JSON.stringify(raw, null, 2) + '\n');
-        console.error(`[cleanupHookSettings] Cleaned hooks from ${settingsPath}`);
-      }
-    } catch (err) {
-      console.error(`[cleanupHookSettings] Failed for ${settingsPath}:`, err);
-    }
+    cleanupHookSettingsFile(settingsPath);
   }
-
   writtenSettingsPaths.clear();
+}
+
+/**
+ * On startup, sweep every known task / project working directory and strip
+ * stale Dash hook entries from their settings.local.json. Catches files left
+ * behind by prior crashes, force-quits, or older builds whose port is now
+ * dead — without that sweep, opening Claude in those folders (from any
+ * terminal, including outside Claudinator) produces ECONNREFUSED noise on
+ * every tool call.
+ *
+ * Must run BEFORE the HookServer binds and before any tasks spawn.
+ */
+export function sweepStaleHookSettings(): void {
+  try {
+    const db = getDb();
+    const taskRows = db.select({ p: tasks.path }).from(tasks).all();
+    const projectRows = db.select({ p: projects.path }).from(projects).all();
+
+    const seen = new Set<string>();
+    for (const row of [...taskRows, ...projectRows]) {
+      if (!row.p || typeof row.p !== 'string') continue;
+      const settingsPath = path.join(row.p, '.claude', 'settings.local.json');
+      if (seen.has(settingsPath)) continue;
+      seen.add(settingsPath);
+      cleanupHookSettingsFile(settingsPath);
+    }
+    console.error(`[sweepStaleHookSettings] Swept ${seen.size} paths from DB`);
+  } catch (err) {
+    console.error('[sweepStaleHookSettings] Failed:', err);
+  }
 }
 
 /**
